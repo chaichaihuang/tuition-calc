@@ -1355,12 +1355,15 @@ function buildSettlementHTML() {
   let rows = '';
   flatRecords.forEach((r,i) => {
     const d = new Date(r.date+'T00:00:00');
-    const priceNote = r.price !== defaultFee ? `<span style="color:var(--danger);font-size:10px">(¥${r.price}/节)</span>` : '';
+    const isCustomPrice = r.price !== defaultFee;
+    const feeHtml = isCustomPrice
+      ? `<span style="font-size:10px;color:var(--danger)">¥${r.price}×${r.lessons}节</span><br>¥${(r.lessons*r.price).toFixed(0)}`
+      : `¥${(r.lessons*r.price).toFixed(0)}`;
     rows += `<tr>
       <td>${i+1}</td><td>${r.date}</td><td>周${weekDays[d.getDay()]}</td>
-      <td>${escHtml(r.content||'-')} ${priceNote}</td>
+      <td>${escHtml(r.content||'-')}</td>
       <td>${r.lessons}节</td>
-      <td style="text-align:right">¥${(r.lessons*r.price).toFixed(0)}</td>
+      <td style="text-align:right">${feeHtml}</td>
     </tr>`;
   });
   if (flatRecords.length === 0) {
