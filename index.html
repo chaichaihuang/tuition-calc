@@ -290,6 +290,13 @@
   table tbody tr:hover { background: #f8fafc; }
   table tbody tr.attended { background: #f0fdf4; }
   table tbody tr.attended:hover { background: #dcfce7; }
+  /* 同一天多节课：第一行有日期，后续行日期/日/星期留空 */
+  table tbody tr.date-first td.day-col,
+  table tbody tr.date-first td.date-col,
+  table tbody tr.date-first td.weekday-col { font-weight: 600; }
+  table tbody tr.date-continue td.day-col,
+  table tbody tr.date-continue td.date-col,
+  table tbody tr.date-continue td.weekday-col { color: transparent; user-select: none; }
 
   .day-col { width: 32px; text-align: center; font-weight: 600; font-size: 13px; }
   .date-col { width: 95px; color: var(--text-secondary); font-size: 11px; }
@@ -297,7 +304,9 @@
   .toggle-col { width: 60px; text-align: center; }
   .content-col { min-width: 120px; }
   .lessons-col { width: 54px; text-align: center; }
+  .price-col { width: 68px; text-align: center; }
   .fee-col { width: 80px; text-align: right; font-weight: 600; color: var(--primary); font-size: 12px; }
+  .act-col { width: 70px; text-align: center; }
 
   /* Toggle */
   .toggle-switch { position: relative; display: inline-block; width: 38px; height: 22px; }
@@ -321,10 +330,25 @@
     border: 1px solid var(--border); border-radius: 5px;
     font-size: 12px; font-family: inherit;
   }
-  .content-input:focus, .lessons-input:focus { outline: none; border-color: var(--primary); }
+  .content-input:focus, .lessons-input:focus, .price-input:focus { outline: none; border-color: var(--primary); }
   .lessons-input { text-align: center; }
+  .price-input { text-align: center; width: 100%; padding: 5px 2px; border: 1px solid var(--border); border-radius: 5px; font-size: 12px; font-family: inherit; background: #fefce8; }
 
   .empty-row td { text-align: center; color: #94a3b8; padding: 28px; font-size: 13px; }
+
+  /* 添加课时按钮 */
+  .btn-add-lesson {
+    background: #dcfce7; color: #15803d; border: 1px dashed #86efac;
+    padding: 2px 6px; font-size: 11px; border-radius: 4px; cursor: pointer;
+    font-family: inherit; white-space: nowrap;
+  }
+  .btn-add-lesson:hover { background: #bbf7d0; }
+  .btn-del-lesson {
+    background: none; border: none; color: var(--danger);
+    font-size: 16px; cursor: pointer; padding: 0 4px; line-height: 1;
+    opacity: 0.4;
+  }
+  .btn-del-lesson:hover { opacity: 1; }
 
   /* 底部结算栏 */
   .settle-bar {
@@ -413,9 +437,6 @@
     padding: 10px 0; border-top: 2px solid #1e293b;
   }
   .settlement-preview .s-total span { color: var(--primary); font-size: 22px; }
-  .settlement-preview .s-footer {
-    margin-top: 20px; font-size: 11px; color: var(--text-secondary); text-align: center;
-  }
 
   @media print {
     body { background: #fff; }
@@ -448,7 +469,7 @@
       grid-template-rows: auto auto;
       padding: 8px;
       gap: 8px;
-      padding-bottom: 70px; /* 给底部Tab留空间 */
+      padding-bottom: 70px;
     }
 
     .sidebar { display: none; }
@@ -464,38 +485,34 @@
     .info-card { padding: 10px 12px; }
     .info-card .ic-value { font-size: 18px; }
 
-    /* 顶部按钮变小 */
     .topbar { padding: 0 10px; height: 44px; }
     .topbar .logo { font-size: 14px; }
     .topbar .logo span { font-size: 18px; }
     .topbar-actions .btn { padding: 4px 8px; font-size: 11px; }
 
-    /* 主区域 padding */
     .main-header { padding: 8px 10px; }
     .main-header h3 { font-size: 13px; }
     .settle-bar { padding: 8px 10px; }
 
-    /* 表格列宽调整 */
     .day-col { width: 26px; font-size: 12px; }
-    .date-col { width: 82px; font-size: 10px; }
-    .weekday-col { display: none; } /* 手机端隐藏星期列省空间 */
-    .toggle-col { width: 52px; }
-    .content-col { min-width: 90px; }
-    .lessons-col { width: 44px; }
-    .fee-col { width: 66px; font-size: 11px; }
+    .date-col { width: 72px; font-size: 10px; }
+    .weekday-col { display: none; }
+    .toggle-col { width: 48px; }
+    .content-col { min-width: 80px; }
+    .lessons-col { width: 40px; }
+    .price-col { width: 52px; }
+    .fee-col { width: 60px; font-size: 11px; }
+    .act-col { width: 52px; }
 
-    /* 手机端toggle稍小 */
     .toggle-switch { width: 36px; height: 20px; }
     .toggle-slider:before { height: 14px; width: 14px; left: 3px; bottom: 3px; }
     input:checked + .toggle-slider:before { transform: translateX(16px); }
 
-    /* 结算栏手机适配 */
     .settle-bar { flex-direction: column; align-items: stretch; }
     .settle-bar .settle-left { justify-content: center; }
     .settle-bar .settle-right { justify-content: center; }
     .settle-bar input[type="date"] { width: 115px; font-size: 11px; }
 
-    /* 弹窗全屏 */
     .modal-overlay { padding: 0; }
     .modal {
       max-width: 100%;
@@ -504,7 +521,6 @@
     }
     .settlement-preview .s-info { grid-template-columns: 1fr; }
 
-    /* 底部Tab导航 */
     .mobile-tabs {
       display: flex;
       position: fixed;
@@ -537,7 +553,6 @@
     .mobile-tab .tab-icon { font-size: 20px; }
     .mobile-tab.active { color: var(--primary); font-weight: 600; }
 
-    /* 学生列表弹窗（手机端） */
     .student-sheet {
       display: none;
       position: fixed;
@@ -588,7 +603,6 @@
     .student-sheet-footer input:focus { outline: none; border-color: var(--primary); }
   }
 
-  /* 桌面端隐藏手机Tab */
   @media (min-width: 769px) {
     .mobile-tabs { display: none; }
     .student-sheet { display: none; }
@@ -668,11 +682,13 @@
             <th class="toggle-col">上课</th>
             <th class="content-col">上课内容</th>
             <th class="lessons-col">节数</th>
+            <th class="price-col">单价</th>
             <th class="fee-col">费用</th>
+            <th class="act-col">操作</th>
           </tr>
         </thead>
         <tbody id="attendanceBody">
-          <tr class="empty-row"><td colspan="7">👈 请先在左侧选择学生</td></tr>
+          <tr class="empty-row"><td colspan="9">👈 请先在左侧选择学生</td></tr>
         </tbody>
       </table>
     </div>
@@ -683,7 +699,7 @@
         <input type="date" id="settleStart" onchange="onSettleChange()">
         <span style="color:var(--text-secondary);font-size:12px">至</span>
         <input type="date" id="settleEnd" onchange="onSettleChange()">
-        <label>单价：</label>
+        <label>默认单价：</label>
         <div class="fee-input-inline">
           <span>¥</span>
           <input type="number" id="feeInput" value="700" min="0" step="1" oninput="onFeeChange()">
@@ -743,7 +759,7 @@
       <input type="date" id="settleEndMobile" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit" onchange="syncSettleDates()">
     </div>
     <div>
-      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">课时费单价（元/节）</label>
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">默认课时费单价（元/节）</label>
       <input type="number" id="feeInputMobile" value="700" min="0" step="1" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit" oninput="syncFeeMobile()">
     </div>
     <div style="background:#f0fdf4;padding:12px;border-radius:8px;text-align:center;font-size:13px;color:var(--success)" id="settlePreviewMobile">-</div>
@@ -773,17 +789,42 @@
 
 <script>
 // ============================================================
-// 数据模型：纯 localStorage 即时写入
-// { students: [{ id, name, feePerClass, records: { "YYYY-MM-DD": {attended, content, lessons} } }] }
-// lessons = 节数（整数或小数，如 1, 1.5, 2）
+// 数据模型 v3：支持一天多节课
+// records: { "YYYY-MM-DD": [ {content, lessons, customFee}, ... ] }
+//   出勤判断：数组长度 > 0 即视为出勤
+//   老数据 v2 兼容：{attended,content,lessons,customFee} → 自动迁移
 // ============================================================
-const STORAGE_KEY = 'tution_calc_v2';
+const STORAGE_KEY = 'tution_calc_v3';
 let appData = { students: [] };
 let currentStudentId = null;
+
+// ===== 数据迁移 =====
+function migrateStudentRecords(student) {
+  if (!student.records) { student.records = {}; return; }
+  const migrated = {};
+  for (const [ds, val] of Object.entries(student.records)) {
+    if (Array.isArray(val)) {
+      // 已经是 v3 格式
+      migrated[ds] = val;
+    } else if (typeof val === 'object' && val !== null) {
+      // v2 格式 {attended,content,lessons,customFee}
+      if (val.attended) {
+        migrated[ds] = [{ content: val.content||'', lessons: val.lessons||1, customFee: (val.customFee!=null&&val.customFee!=='') ? val.customFee : null }];
+      } else {
+        migrated[ds] = [];
+      }
+    } else {
+      migrated[ds] = [];
+    }
+  }
+  student.records = migrated;
+}
 
 // ===== 初始化 =====
 (function init() {
   loadData();
+  // 迁移所有学生数据
+  appData.students.forEach(migrateStudentRecords);
   renderStudentList();
   const now = new Date();
   document.getElementById('monthPicker').value = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
@@ -797,7 +838,8 @@ let currentStudentId = null;
 
   if (appData.students.length > 0) {
     selectStudent(appData.students[0].id);
-    const totalRecords = appData.students.reduce((sum, s) => sum + Object.keys(s.records||{}).length, 0);
+    let totalRecords = 0;
+    appData.students.forEach(s => { for (const arr of Object.values(s.records||{})) totalRecords += arr.length; });
     showToast('✅ 已加载 ' + appData.students.length + ' 名学生，' + totalRecords + ' 条记录');
   } else {
     renderTable();
@@ -805,18 +847,21 @@ let currentStudentId = null;
   }
 })();
 
-// ===== 数据读写（同步，即时） =====
+// ===== 数据读写 =====
 function loadData() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) { const p = JSON.parse(raw); if (p && Array.isArray(p.students)) appData = p; }
+    // 也尝试读取旧 key
+    if (!appData.students.length) {
+      const oldRaw = localStorage.getItem('tution_calc_v2');
+      if (oldRaw) { const p = JSON.parse(oldRaw); if (p && Array.isArray(p.students)) appData = p; }
+    }
   } catch(e) { appData = { students: [] }; }
 }
 function saveData() {
-  // 同步立即写入 localStorage，不依赖任何异步操作
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
-    // 保存成功指示灯
     const ind = document.getElementById('saveIndicator');
     if (ind) {
       ind.textContent = '✅ 已保存';
@@ -829,7 +874,6 @@ function saveData() {
     if (ind) { ind.textContent = '⚠ 保存失败'; ind.style.color = '#dc2626'; }
   }
 }
-// 每次数据变化后立即写入——在所有修改 appData 的操作中直接调用 saveData()
 
 // ===== 学生 =====
 function getStudent(id) { return appData.students.find(s => s.id === id); }
@@ -880,12 +924,10 @@ function selectStudent(id) {
   updateSettleStudentNames();
   renderTable();
   updateSummary();
-  // 手机端自动切回登记tab
   if (window.innerWidth <= 768) switchMobileTab('main');
 }
 
 function renderStudentList() {
-  // 桌面端
   const list = document.getElementById('studentList');
   const countEl = document.getElementById('studentCount');
   countEl.textContent = appData.students.length;
@@ -899,7 +941,6 @@ function renderStudentList() {
       </div>`
     ).join('');
   }
-  // 手机端
   const sheetBody = document.getElementById('studentSheetBody');
   if (sheetBody) {
     if (appData.students.length === 0) {
@@ -919,23 +960,12 @@ function renderStudentList() {
 function switchMobileTab(tab) {
   document.querySelectorAll('.mobile-tab').forEach(t => t.classList.remove('active'));
   document.querySelector(`.mobile-tab[data-tab="${tab}"]`).classList.add('active');
-
-  if (tab === 'students') {
-    openStudentSheet();
-  } else if (tab === 'settle') {
-    openSettleSheet();
-  } else {
-    closeStudentSheet();
-    closeSettleSheet();
-  }
+  if (tab === 'students') openStudentSheet();
+  else if (tab === 'settle') openSettleSheet();
+  else { closeStudentSheet(); closeSettleSheet(); }
 }
-function openStudentSheet() {
-  renderStudentList();
-  document.getElementById('studentSheet').classList.add('active');
-}
-function closeStudentSheet() {
-  document.getElementById('studentSheet').classList.remove('active');
-}
+function openStudentSheet() { renderStudentList(); document.getElementById('studentSheet').classList.add('active'); }
+function closeStudentSheet() { document.getElementById('studentSheet').classList.remove('active'); }
 function openSettleSheet() {
   document.getElementById('settleStartMobile').value = document.getElementById('settleStart').value;
   document.getElementById('settleEndMobile').value = document.getElementById('settleEnd').value;
@@ -944,9 +974,7 @@ function openSettleSheet() {
   updateSettlePreviewMobile();
   document.getElementById('settleSheet').classList.add('active');
 }
-function closeSettleSheet() {
-  document.getElementById('settleSheet').classList.remove('active');
-}
+function closeSettleSheet() { document.getElementById('settleSheet').classList.remove('active'); }
 function syncSettleDates() {
   document.getElementById('settleStart').value = document.getElementById('settleStartMobile').value;
   document.getElementById('settleEnd').value = document.getElementById('settleEndMobile').value;
@@ -963,20 +991,12 @@ function updateSettlePreviewMobile() {
   if (!student) { document.getElementById('settlePreviewMobile').textContent = '请先选择学生'; return; }
   const s = document.getElementById('settleStartMobile').value;
   const e = document.getElementById('settleEndMobile').value;
-  let totalLessons = 0, count = 0;
-  if (student.records) {
-    for (const [ds, r] of Object.entries(student.records)) {
-      if ((!s || ds >= s) && (!e || ds <= e) && r.attended) {
-        totalLessons += r.lessons || 1;
-        count++;
-      }
-    }
-  }
+  const stats = countRecordsInRange(student, s, e);
   document.getElementById('settlePreviewMobile').textContent =
-    `${count}天 · ${totalLessons}节 · ¥${(totalLessons*student.feePerClass).toFixed(0)}`;
+    `${stats.days}天 · ${stats.lessons}节 · ¥${stats.fee.toFixed(0)}`;
 }
 
-// ===== 表格 =====
+// ===== 表格渲染（支持一天多行） =====
 function getMonthStr() { return document.getElementById('monthPicker').value; }
 function onMonthChange() { renderTable(); updateSummary(); }
 
@@ -994,17 +1014,43 @@ function onSettleChange() {
   updateSettlePreviewMobile();
 }
 
+// 获取某一天的课时记录数组（确保为数组）
+function getDayRecords(student, dateStr) {
+  if (!student || !student.records) return [];
+  const v = student.records[dateStr];
+  if (Array.isArray(v)) return v;
+  return [];
+}
+
+// 确保某一天有数组
+function ensureDayRecords(student, dateStr) {
+  if (!student.records) student.records = {};
+  if (!Array.isArray(student.records[dateStr])) student.records[dateStr] = [];
+  return student.records[dateStr];
+}
+
+// 某天是否出勤
+function isAttended(student, dateStr) {
+  const arr = getDayRecords(student, dateStr);
+  return arr.length > 0;
+}
+
+// 获取某条记录的单价
+function getRecordPrice(rec, defaultFee) {
+  return (rec.customFee != null && rec.customFee !== '' && rec.customFee > 0) ? rec.customFee : defaultFee;
+}
+
 function renderTable() {
   const tbody = document.getElementById('attendanceBody');
   const student = getCurrentStudent();
   const month = getMonthStr();
   if (!student) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">👈 请先选择学生</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="9">👈 请先选择学生</td></tr>';
     document.getElementById('summaryMonth').textContent = '-';
     return;
   }
   if (!month) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">请选择月份</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="9">请选择月份</td></tr>';
     return;
   }
   document.getElementById('summaryMonth').textContent = month;
@@ -1012,7 +1058,7 @@ function renderTable() {
   const [year, mn] = month.split('-').map(Number);
   const daysInMonth = new Date(year, mn, 0).getDate();
   const weekDays = ['日','一','二','三','四','五','六'];
-  const fee = student.feePerClass;
+  const defaultFee = student.feePerClass;
   let html = '';
 
   for (let day = 1; day <= daysInMonth; day++) {
@@ -1020,71 +1066,159 @@ function renderTable() {
     const dateStr = year + '-' + String(mn).padStart(2,'0') + '-' + String(day).padStart(2,'0');
     const wd = weekDays[d.getDay()];
     const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-    const record = (student.records && student.records[dateStr]) || { attended: false, content: '', lessons: 1 };
-    const rowClass = record.attended ? 'attended' : '';
-    const dayFee = record.attended ? '¥' + ((record.lessons||1) * fee).toFixed(0) : '-';
+    const records = getDayRecords(student, dateStr);
+    const attended = records.length > 0;
 
-    html += `<tr class="${rowClass}" data-date="${dateStr}">
-      <td class="day-col">${day}</td>
-      <td class="date-col">${dateStr}</td>
-      <td class="weekday-col" style="color:${isWeekend?'#dc2626':'inherit'}">周${wd}</td>
-      <td class="toggle-col">
-        <label class="toggle-switch">
-          <input type="checkbox" ${record.attended?'checked':''} onchange="toggleAttend('${dateStr}',this.checked)">
-          <span class="toggle-slider"></span>
-        </label>
-      </td>
-      <td class="content-col">
-        <input class="content-input" value="${escAttr(record.content||'')}" placeholder="上课内容…" onchange="updateRec('${dateStr}','content',this.value)" ${!record.attended?'disabled':''}>
-      </td>
-      <td class="lessons-col">
-        <input type="number" class="lessons-input" value="${record.lessons||1}" min="0.5" max="20" step="0.5" onchange="updateRec('${dateStr}','lessons',parseFloat(this.value)||1)" ${!record.attended?'disabled':''}>
-      </td>
-      <td class="fee-col" id="dayFee_${dateStr}">${dayFee}</td>
-    </tr>`;
+    if (records.length === 0) {
+      // 无记录：显示空行
+      html += `<tr data-date="${dateStr}" data-idx="0">
+        <td class="day-col">${day}</td>
+        <td class="date-col">${dateStr}</td>
+        <td class="weekday-col" style="color:${isWeekend?'#dc2626':'inherit'}">周${wd}</td>
+        <td class="toggle-col">
+          <label class="toggle-switch">
+            <input type="checkbox" onchange="toggleAttend('${dateStr}',this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+        </td>
+        <td class="content-col"><input class="content-input" placeholder="上课内容…" disabled></td>
+        <td class="lessons-col"><input type="number" class="lessons-input" value="1" min="0.5" max="20" step="0.5" disabled></td>
+        <td class="price-col"><input type="number" class="price-input" value="" placeholder="${defaultFee}" min="0" step="1" disabled></td>
+        <td class="fee-col" id="dayFee_${dateStr}">-</td>
+        <td class="act-col"><button class="btn-add-lesson" onclick="addLessonRow('${dateStr}')" disabled>+课时</button></td>
+      </tr>`;
+    } else {
+      // 有记录：每一条记录一行
+      records.forEach((rec, idx) => {
+        const isFirst = idx === 0;
+        const dayPrice = getRecordPrice(rec, defaultFee);
+        const dayFee = '¥' + ((rec.lessons||1) * dayPrice).toFixed(0);
+        const rowClass = (isFirst ? 'attended date-first' : 'attended date-continue');
+
+        html += `<tr class="${rowClass}" data-date="${dateStr}" data-idx="${idx}">
+          <td class="day-col">${isFirst ? day : ''}</td>
+          <td class="date-col">${isFirst ? dateStr : ''}</td>
+          <td class="weekday-col" style="color:${isWeekend?'#dc2626':'inherit'}">${isFirst ? '周'+wd : ''}</td>
+          <td class="toggle-col">
+            ${isFirst ? `<label class="toggle-switch">
+              <input type="checkbox" checked onchange="toggleAttend('${dateStr}',this.checked)">
+              <span class="toggle-slider"></span>
+            </label>` : ''}
+          </td>
+          <td class="content-col">
+            <input class="content-input" value="${escAttr(rec.content||'')}" placeholder="上课内容…" onchange="updateRecContent('${dateStr}',${idx},this.value)">
+          </td>
+          <td class="lessons-col">
+            <input type="number" class="lessons-input" value="${rec.lessons||1}" min="0.5" max="20" step="0.5" onchange="updateRecLessons('${dateStr}',${idx},parseFloat(this.value)||1)">
+          </td>
+          <td class="price-col">
+            <input type="number" class="price-input" value="${rec.customFee!=null?rec.customFee:''}" placeholder="${defaultFee}" min="0" step="1" onchange="updateRecPrice('${dateStr}',${idx},this.value===''?null:parseInt(this.value)||0)">
+          </td>
+          <td class="fee-col" id="dayFee_${dateStr}_${idx}">${dayFee}</td>
+          <td class="act-col">
+            <button class="btn-add-lesson" onclick="addLessonRow('${dateStr}')">+课时</button>
+            ${records.length > 1 ? `<button class="btn-del-lesson" onclick="delLessonRow('${dateStr}',${idx})" title="删除此课时">×</button>` : ''}
+          </td>
+        </tr>`;
+      });
+    }
   }
   tbody.innerHTML = html;
 }
 
+// 切换出勤
 function toggleAttend(dateStr, attended) {
   const s = getCurrentStudent(); if (!s) return;
-  if (!s.records) s.records = {};
-  if (!s.records[dateStr]) s.records[dateStr] = { attended: false, content: '', lessons: 1 };
-  s.records[dateStr].attended = attended;
-  const row = document.querySelector(`tr[data-date="${dateStr}"]`);
-  if (row) {
-    row.className = attended ? 'attended' : '';
-    const ci = row.querySelector('.content-input');
-    const li = row.querySelector('.lessons-input');
-    if (ci) ci.disabled = !attended;
-    if (li) li.disabled = !attended;
+  if (attended) {
+    // 打开出勤：添加一条默认记录
+    const arr = ensureDayRecords(s, dateStr);
+    if (arr.length === 0) arr.push({ content: '', lessons: 1, customFee: null });
+  } else {
+    // 关闭出勤：清空该天所有记录
+    if (s.records) s.records[dateStr] = [];
   }
-  updateDayFee(dateStr); updateSummary(); saveData();
+  saveData(); renderTable(); updateSummary();
 }
 
-function updateRec(dateStr, field, value) {
+// 追加一条课时记录
+function addLessonRow(dateStr) {
   const s = getCurrentStudent(); if (!s) return;
-  if (!s.records) s.records = {};
-  if (!s.records[dateStr]) s.records[dateStr] = { attended: false, content: '', lessons: 1 };
-  s.records[dateStr][field] = value;
-  if (field === 'lessons') { updateDayFee(dateStr); updateSummary(); }
-  saveData();
+  const arr = ensureDayRecords(s, dateStr);
+  arr.push({ content: '', lessons: 1, customFee: null });
+  saveData(); renderTable(); updateSummary();
 }
 
-function updateDayFee(dateStr) {
+// 删除一条课时记录
+function delLessonRow(dateStr, idx) {
   const s = getCurrentStudent(); if (!s) return;
-  const r = (s.records && s.records[dateStr]);
-  const cell = document.getElementById('dayFee_' + dateStr);
+  const arr = ensureDayRecords(s, dateStr);
+  arr.splice(idx, 1);
+  saveData(); renderTable(); updateSummary();
+}
+
+// 更新课时内容
+function updateRecContent(dateStr, idx, value) {
+  const s = getCurrentStudent(); if (!s) return;
+  const arr = getDayRecords(s, dateStr);
+  if (idx >= 0 && idx < arr.length) { arr[idx].content = value; saveData(); }
+}
+
+// 更新节数
+function updateRecLessons(dateStr, idx, value) {
+  const s = getCurrentStudent(); if (!s) return;
+  const arr = getDayRecords(s, dateStr);
+  if (idx >= 0 && idx < arr.length) { arr[idx].lessons = value; updateDayFee(dateStr, idx); updateSummary(); saveData(); }
+}
+
+// 更新单价
+function updateRecPrice(dateStr, idx, value) {
+  const s = getCurrentStudent(); if (!s) return;
+  const arr = getDayRecords(s, dateStr);
+  if (idx >= 0 && idx < arr.length) { arr[idx].customFee = value; updateDayFee(dateStr, idx); updateSummary(); saveData(); }
+}
+
+// 更新单条费用显示
+function updateDayFee(dateStr, idx) {
+  const s = getCurrentStudent(); if (!s) return;
+  const cell = document.getElementById('dayFee_' + dateStr + '_' + idx);
   if (!cell) return;
-  cell.textContent = (r && r.attended) ? '¥' + ((r.lessons||1) * s.feePerClass).toFixed(0) : '-';
+  const arr = getDayRecords(s, dateStr);
+  if (idx >= 0 && idx < arr.length) {
+    const r = arr[idx];
+    const price = getRecordPrice(r, s.feePerClass);
+    cell.textContent = '¥' + ((r.lessons||1) * price).toFixed(0);
+  }
 }
+
+// 更新某天所有费用（默认单价变化时）
 function updateAllDayFees() {
-  const month = getMonthStr(); if (!month) return;
+  const student = getCurrentStudent();
+  const month = getMonthStr();
+  if (!student || !month) return;
   const [y,m] = month.split('-').map(Number);
   const days = new Date(y, m, 0).getDate();
   for (let d = 1; d <= days; d++) {
-    updateDayFee(y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0'));
+    const ds = y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    const arr = getDayRecords(student, ds);
+    arr.forEach((_, idx) => updateDayFee(ds, idx));
   }
+}
+
+// ===== 统计辅助 =====
+function countRecordsInRange(student, start, end) {
+  let days = 0, lessons = 0, fee = 0;
+  if (student.records) {
+    for (const [ds, arr] of Object.entries(student.records)) {
+      if ((!start || ds >= start) && (!end || ds <= end) && Array.isArray(arr) && arr.length > 0) {
+        days++;
+        arr.forEach(r => {
+          lessons += r.lessons || 1;
+          fee += (r.lessons||1) * getRecordPrice(r, student.feePerClass);
+        });
+      }
+    }
+  }
+  return { days, lessons, fee };
 }
 
 // ===== 汇总 =====
@@ -1092,18 +1226,21 @@ function updateSummary() {
   const s = getCurrentStudent(), month = getMonthStr();
   if (!s || !month) { clearSummary(); return; }
   document.getElementById('summaryMonth').textContent = month;
-  let attendedDays = 0, totalLessons = 0;
+  let attendedDays = 0, totalLessons = 0, totalFee = 0;
   if (s.records) {
-    for (const [ds, r] of Object.entries(s.records)) {
-      if (ds.startsWith(month) && r.attended) {
+    for (const [ds, arr] of Object.entries(s.records)) {
+      if (ds.startsWith(month) && Array.isArray(arr) && arr.length > 0) {
         attendedDays++;
-        totalLessons += r.lessons || 1;
+        arr.forEach(r => {
+          totalLessons += r.lessons || 1;
+          totalFee += (r.lessons||1) * getRecordPrice(r, s.feePerClass);
+        });
       }
     }
   }
   document.getElementById('summaryLessons').textContent = totalLessons;
   document.getElementById('summaryDays').textContent = attendedDays;
-  document.getElementById('summaryFee').textContent = '¥' + (totalLessons * s.feePerClass).toFixed(0);
+  document.getElementById('summaryFee').textContent = '¥' + totalFee.toFixed(0);
   updateSettlePreview();
   updateSettlePreviewMobile();
 }
@@ -1126,31 +1263,24 @@ function updateSettlePreview() {
   updateSettleStudentNames();
   const start = document.getElementById('settleStart').value;
   const end = document.getElementById('settleEnd').value;
-  let totalLessons = 0, count = 0;
-  if (s.records) {
-    for (const [ds, r] of Object.entries(s.records)) {
-      if ((!start || ds >= start) && (!end || ds <= end) && r.attended) {
-        totalLessons += r.lessons || 1;
-        count++;
-      }
-    }
-  }
+  const stats = countRecordsInRange(s, start, end);
   document.getElementById('settlePreview').textContent =
-    `${count}天 · ${totalLessons}节 · ¥${(totalLessons*s.feePerClass).toFixed(0)}`;
+    `${stats.days}天 · ${stats.lessons}节 · ¥${stats.fee.toFixed(0)}`;
 }
 
 // ===== 批量操作 =====
 function markAllAttended() {
   const s = getCurrentStudent(), month = getMonthStr();
   if (!s || !month) { showToast('请先选择学生和月份'); return; }
-  if (!confirm('将本月所有日期标记为出勤？')) return;
+  if (!confirm('将本月所有日期标记为出勤（每天1节）？')) return;
   if (!s.records) s.records = {};
   const [y,m] = month.split('-').map(Number);
   const days = new Date(y, m, 0).getDate();
   for (let d = 1; d <= days; d++) {
     const ds = y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
-    if (!s.records[ds]) s.records[ds] = { attended: false, content: '', lessons: 1 };
-    s.records[ds].attended = true;
+    if (!Array.isArray(s.records[ds]) || s.records[ds].length === 0) {
+      s.records[ds] = [{ content: '', lessons: 1, customFee: null }];
+    }
   }
   saveData(); renderTable(); updateSummary();
   showToast('已标记全部出勤 ✓');
@@ -1164,11 +1294,13 @@ function batchSetLessons() {
   if (isNaN(n) || n <= 0) { showToast('请输入有效节数'); return; }
   if (!s.records) s.records = {};
   let cnt = 0;
-  for (const [ds, r] of Object.entries(s.records)) {
-    if (ds.startsWith(month) && r.attended) { r.lessons = n; cnt++; }
+  for (const [ds, arr] of Object.entries(s.records)) {
+    if (ds.startsWith(month) && Array.isArray(arr)) {
+      arr.forEach(r => { r.lessons = n; cnt++; });
+    }
   }
   saveData(); renderTable(); updateSummary();
-  showToast(`已设置 ${cnt} 天为 ${n} 节 ✓`);
+  showToast(`已设置 ${cnt} 条记录为 ${n} 节 ✓`);
 }
 function copyLastMonth() {
   const s = getCurrentStudent(), month = getMonthStr();
@@ -1179,20 +1311,20 @@ function copyLastMonth() {
   const prevMonth = py+'-'+String(pm).padStart(2,'0');
   let copied = 0;
   if (s.records) {
-    for (const [ds, r] of Object.entries(s.records)) {
-      if (ds.startsWith(prevMonth) && r.attended) {
+    for (const [ds, arr] of Object.entries(s.records)) {
+      if (ds.startsWith(prevMonth) && Array.isArray(arr) && arr.length > 0) {
         const dayPart = ds.substring(8);
         const newDs = month + '-' + dayPart;
         const maxDay = new Date(y, m, 0).getDate();
         if (parseInt(dayPart) <= maxDay) {
-          s.records[newDs] = { attended: true, content: r.content||'', lessons: r.lessons||1 };
-          copied++;
+          s.records[newDs] = arr.map(r => ({ content: r.content||'', lessons: r.lessons||1, customFee: r.customFee }));
+          copied += arr.length;
         }
       }
     }
   }
   if (copied === 0) { showToast('上月无出勤记录'); }
-  else { saveData(); renderTable(); updateSummary(); showToast(`已复制 ${copied} 天 ✓`); }
+  else { saveData(); renderTable(); updateSummary(); showToast(`已复制 ${copied} 条记录 ✓`); }
 }
 
 // ===== 结算单 =====
@@ -1201,33 +1333,37 @@ function buildSettlementHTML() {
   if (!s) return '<p style="text-align:center;color:#94a3b8;padding:40px">请先选择学生</p>';
   const start = document.getElementById('settleStart').value;
   const end = document.getElementById('settleEnd').value;
-  const fee = s.feePerClass;
+  const defaultFee = s.feePerClass;
   const rangeLabel = (start&&end) ? `${start} 至 ${end}` : '未设置';
-  const records = [];
-  let totalLessons = 0;
+  const flatRecords = [];
+  let totalLessons = 0, totalFee = 0;
   if (s.records) {
-    for (const [ds, r] of Object.entries(s.records)) {
-      if (r.attended && (!start||ds>=start) && (!end||ds<=end)) {
-        records.push({ date: ds, content: r.content||'', lessons: r.lessons||1 });
-        totalLessons += r.lessons || 1;
+    for (const [ds, arr] of Object.entries(s.records)) {
+      if ((!start||ds>=start) && (!end||ds<=end) && Array.isArray(arr)) {
+        arr.forEach((r, idx) => {
+          const price = getRecordPrice(r, defaultFee);
+          flatRecords.push({ date: ds, subIdx: idx, content: r.content||'', lessons: r.lessons||1, price: price });
+          totalLessons += r.lessons || 1;
+          totalFee += (r.lessons||1) * price;
+        });
       }
     }
   }
-  records.sort((a,b) => a.date.localeCompare(b.date));
-  const totalFee = totalLessons * fee;
+  flatRecords.sort((a,b) => a.date.localeCompare(b.date) || a.subIdx - b.subIdx);
   const weekDays = ['日','一','二','三','四','五','六'];
 
   let rows = '';
-  records.forEach((r,i) => {
+  flatRecords.forEach((r,i) => {
     const d = new Date(r.date+'T00:00:00');
+    const priceNote = r.price !== defaultFee ? `<span style="color:var(--danger);font-size:10px">(¥${r.price}/节)</span>` : '';
     rows += `<tr>
       <td>${i+1}</td><td>${r.date}</td><td>周${weekDays[d.getDay()]}</td>
-      <td>${escHtml(r.content||'-')}</td>
+      <td>${escHtml(r.content||'-')} ${priceNote}</td>
       <td>${r.lessons}节</td>
-      <td style="text-align:right">¥${(r.lessons*fee).toFixed(0)}</td>
+      <td style="text-align:right">¥${(r.lessons*r.price).toFixed(0)}</td>
     </tr>`;
   });
-  if (records.length === 0) {
+  if (flatRecords.length === 0) {
     rows = '<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:20px;">该范围内暂无出勤记录</td></tr>';
   }
 
@@ -1239,19 +1375,18 @@ function buildSettlementHTML() {
     <dl class="s-info">
       <dt>学生姓名</dt><dd>${escHtml(s.name)}</dd>
       <dt>结算周期</dt><dd>${rangeLabel}</dd>
-      <dt>课时费单价</dt><dd>¥${fee} / 节</dd>
-      <dt>总节数</dt><dd>${totalLessons} 节（${records.length} 天）</dd>
+      <dt>默认单价</dt><dd>¥${defaultFee} / 节（红色标注为特殊单价）</dd>
+      <dt>总节数</dt><dd>${totalLessons} 节（${flatRecords.length} 条记录）</dd>
     </dl>
     <table class="s-table">
       <thead><tr>
         <th style="width:32px">#</th><th style="width:105px">日期</th><th style="width:48px">星期</th>
-        <th>上课内容</th><th style="width:56px">节数</th><th style="width:84px">费用</th>
+        <th>上课内容</th><th style="width:56px">节数</th><th style="width:90px">费用</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
     <div class="s-total">
       应结算总学费：<span>¥${totalFee.toFixed(0)}</span>
-      &nbsp;（${totalLessons} 节 × ¥${fee}/节）
     </div>
     <div class="s-footer">
       <p>老师签字：______________ &nbsp;&nbsp;&nbsp; 日期：______________</p>
@@ -1278,22 +1413,26 @@ function exportCSV() {
   const s = getCurrentStudent(); if (!s) { showToast('请先选择学生'); return; }
   const start = document.getElementById('settleStart').value;
   const end = document.getElementById('settleEnd').value;
-  const fee = s.feePerClass;
-  const records = [];
-  let totalLessons = 0;
+  const defaultFee = s.feePerClass;
+  const flatRecords = [];
+  let totalLessons = 0, totalFee = 0;
   if (s.records) {
-    for (const [ds, r] of Object.entries(s.records)) {
-      if (r.attended && (!start||ds>=start) && (!end||ds<=end)) {
-        records.push({ date: ds, content: r.content||'', lessons: r.lessons||1 });
-        totalLessons += r.lessons || 1;
+    for (const [ds, arr] of Object.entries(s.records)) {
+      if ((!start||ds>=start) && (!end||ds<=end) && Array.isArray(arr)) {
+        arr.forEach(r => {
+          const price = getRecordPrice(r, defaultFee);
+          flatRecords.push({ date: ds, content: r.content||'', lessons: r.lessons||1, price: price });
+          totalLessons += r.lessons || 1;
+          totalFee += (r.lessons||1) * price;
+        });
       }
     }
   }
-  records.sort((a,b) => a.date.localeCompare(b.date));
-  let csv = '\uFEFF日期,上课内容,节数,费用(元)\n';
-  records.forEach(r => csv += `${r.date},"${(r.content||'').replace(/"/g,'""')}",${r.lessons},${(r.lessons*fee).toFixed(0)}\n`);
-  csv += `\n合计,,${totalLessons},${(totalLessons*fee).toFixed(0)}\n`;
-  csv += `学生: ${s.name}, 单价: ¥${fee}/节, 范围: ${start||'不限'}~${end||'不限'}`;
+  flatRecords.sort((a,b) => a.date.localeCompare(b.date));
+  let csv = '\uFEFF日期,上课内容,节数,单价(元/节),费用(元)\n';
+  flatRecords.forEach(r => csv += `${r.date},"${(r.content||'').replace(/"/g,'""')}",${r.lessons},${r.price},${(r.lessons*r.price).toFixed(0)}\n`);
+  csv += `\n合计,,${totalLessons},,${totalFee.toFixed(0)}\n`;
+  csv += `学生: ${s.name}, 默认单价: ¥${defaultFee}/节, 范围: ${start||'不限'}~${end||'不限'}`;
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1322,7 +1461,9 @@ function importDataPrompt() {
         const d = JSON.parse(ev.target.result);
         if (!d.students||!Array.isArray(d.students)) throw new Error();
         if (!confirm(`导入 ${d.students.length} 个学生，覆盖当前数据？`)) return;
-        appData = d; saveData();
+        appData = d;
+        appData.students.forEach(migrateStudentRecords);
+        saveData();
         currentStudentId = appData.students.length>0 ? appData.students[0].id : null;
         renderStudentList();
         if (currentStudentId) selectStudent(currentStudentId); else renderTable();
