@@ -144,9 +144,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
 .month-table .cell-inrange{background:#fafafa}
 .month-table .cell-inrange .day-num{color:var(--text-secondary)}
 
+/* 混合状态（部分正常+部分请假/调课） */
+.month-table .cell-mixed{background:#fff7ed;border:1px solid #fed7aa}
+.month-table .cell-mixed .day-num{color:#c2410c}
+.month-table .cell-mixed .status-label{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;background:#fed7aa;color:#c2410c;margin-bottom:2px}
+
 /* 范围外 */
 .month-table .cell-outrange{background:#f1f5f9;color:#cbd5e1}
 .month-table .cell-outrange .day-num{color:#cbd5e1}
+
+/* 加课日 */
+.month-table .cell-makeup{background:#fdf2f8;border:1px solid #f9a8d4}
+.month-table .cell-makeup .day-num{color:#9d174d}
+.month-table .cell-makeup .status-label{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;background:#fce7f3;color:#9d174d;margin-bottom:2px}
 
 /* 空单元格（补位） */
 .month-table .cell-empty{background:#f8fafc}
@@ -294,6 +304,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
 .settle-card table .total-row td{font-weight:700;background:#f0fdf4;border-top:2px solid #16a34a}
 .settle-card .sc-footer{text-align:center;margin-top:20px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8}
 .settle-card .sc-total-badge{display:inline-block;background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;font-size:24px;font-weight:800;padding:8px 28px;border-radius:12px;margin:12px 0}
+
+/* ===== 老师日程表 ===== */
+.teacher-schedule .month-block{margin-bottom:16px}
+.teacher-schedule .month-title{font-size:14px;font-weight:700;padding:8px 0;border-bottom:2px solid var(--primary);margin-bottom:8px}
+.teacher-schedule .empty-msg{text-align:center;color:#94a3b8;padding:40px;font-size:13px}
 </style>
 </head>
 <body>
@@ -431,7 +446,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
         </div>
         <div style="display:flex;justify-content:space-between;gap:8px;padding:8px 0">
           <button class="btn btn-outline btn-lg" onclick="goToStep1()">← 上一步</button>
-          <button class="btn btn-primary btn-lg" onclick="goToStep3()">下一步：计算费用 →</button>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-lg" style="background:#fce7f3;color:#9d174d;border:1.5px solid #f9a8d4" onclick="openMakeupModal()">📅 加课</button>
+            <button class="btn btn-primary btn-lg" onclick="goToStep3()">下一步：计算费用 →</button>
+          </div>
         </div>
       </div>
 
@@ -543,6 +561,72 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
   </div>
 </div>
 
+<!-- 加课弹窗 -->
+<div class="modal-overlay" id="makeupModal" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>📅 加课</h3>
+      <button class="modal-close" onclick="closeMakeupModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="reschedule-form">
+        <label>📅 加课日期
+          <input type="date" class="form-input" id="makeupDate" style="width:100%">
+        </label>
+        <div class="date-hint">选择需要加课的日期（可以是任意日期）</div>
+        <label>⏰ 时间段
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="time" class="form-input" id="makeupTimeStart" value="14:00" style="flex:1">
+            <span style="color:var(--text-secondary)">至</span>
+            <input type="time" class="form-input" id="makeupTimeEnd" value="16:00" style="flex:1">
+          </div>
+        </label>
+        <label>👤 授课老师
+          <div class="select-wrap"><select id="makeupTeacher" style="width:100%"></select></div>
+        </label>
+        <label>📝 备注（选填）
+          <input type="text" class="form-input" id="makeupNote" placeholder="如：加5月1日劳动节课" style="width:100%">
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeMakeupModal()">取消</button>
+      <button class="btn btn-primary" onclick="confirmMakeup()" style="background:#9d174d">✅ 确认加课</button>
+    </div>
+  </div>
+</div>
+
+<!-- 老师日程表弹窗 -->
+<div class="modal-overlay" id="scheduleViewModal" style="display:none">
+  <div class="modal" style="max-width:750px">
+    <div class="modal-header">
+      <h3>📅 老师日程表</h3>
+      <button class="modal-close" onclick="closeScheduleView()">✕</button>
+    </div>
+    <div class="modal-body" id="scheduleViewContent">
+      <!-- Step 1: 选学生 -->
+      <div id="svStep1">
+        <h4 style="font-size:14px;margin-bottom:12px">👥 选择学生（可多选）</h4>
+        <div class="student-tags" id="svStudentTags"></div>
+        <div style="margin-top:16px">
+          <h4 style="font-size:14px;margin-bottom:8px">📅 日期范围</h4>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="date" class="form-input" id="svDateStart" style="width:150px">
+            <span style="color:var(--text-secondary)">至</span>
+            <input type="date" class="form-input" id="svDateEnd" style="width:150px">
+          </div>
+          <div style="font-size:11px;color:var(--text-secondary);margin-top:4px">默认显示所有排课日期范围</div>
+        </div>
+        <div style="margin-top:16px">
+          <button class="btn btn-primary" onclick="generateScheduleView()">📅 生成日程表</button>
+        </div>
+      </div>
+      <!-- Step 2: 日程表结果 -->
+      <div id="svStep2" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 <div class="print-area" id="printArea" style="display:none"></div>
 <div id="settleImageContainer"></div>
@@ -562,6 +646,7 @@ let selectedStudents = new Set();
 
 // ===== 工具：本地日期字符串（避免 toISOString 时区偏移）=====
 function toLocalDateStr(date) {
+  if (!date || isNaN(date.getTime())) return '';
   const y = date.getFullYear();
   const m = String(date.getMonth()+1).padStart(2,'0');
   const d = String(date.getDate()).padStart(2,'0');
@@ -576,14 +661,19 @@ function parseLocalDate(str) {
 
 // ===== 初始化 =====
 (function init() {
-  loadData();
-  renderStudentList();
-  initDates();
-  initTempSchedule();
-  renderStep1Students();
-  updateScheduleSelects();
-  switchTab('schedule');
-  showToast('✅ 已加载 ' + appData.students.length + ' 名学生，' + appData.schedules.length + ' 条排课');
+  try {
+    loadData();
+    renderStudentList();
+    initDates();
+    initTempSchedule();
+    renderStep1Students();
+    updateScheduleSelects();
+    switchTab('schedule');
+    showToast('✅ 已加载 ' + appData.students.length + ' 名学生，' + appData.schedules.length + ' 条排课');
+  } catch(e) {
+    console.error('初始化错误:', e);
+    document.body.innerHTML = '<div style="padding:40px;text-align:center;color:red"><h2>初始化失败</h2><p>'+e.message+'</p><p>请尝试清除浏览器数据后刷新</p></div>';
+  }
 })();
 
 function initDates() {
@@ -604,14 +694,48 @@ function initDates() {
 function loadData() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) { const p = JSON.parse(raw); if (p && Array.isArray(p.students)) { appData = p; return; } }
-    // 尝试旧版 key
-    for (const key of ['tuition_calc_v4_1','tuition_calc_v4']) {
-      const old = localStorage.getItem(key);
-      if (old) { const p = JSON.parse(old); if (p && Array.isArray(p.students)) { appData = p; break; } }
+    if (raw) { const p = JSON.parse(raw); if (p && Array.isArray(p.students)) { appData = p; } }
+    else {
+      for (const key of ['tuition_calc_v4_1','tuition_calc_v4']) {
+        const old = localStorage.getItem(key);
+        if (old) { const p = JSON.parse(old); if (p && Array.isArray(p.students)) { appData = p; break; } }
+      }
     }
     if (!appData.schedules) appData.schedules = [];
+    // ★ 旧数据兼容：补齐 slotStates（加 try 防数据异常导致整个页面崩溃）
+    try {
+      appData.schedules.forEach(sch => {
+        if (sch.lessons) {
+          Object.values(sch.lessons).forEach(l => ensureSlotStates(l, sch));
+        }
+      });
+    } catch(e) { console.error('补齐 slotStates 出错:', e); }
   } catch(e) { appData = { students: [], schedules: [] }; }
+}
+// ★ 旧数据兼容：确保 lesson 有 slotStates 数组
+function ensureSlotStates(lesson, sch) {
+  const slotCount = (lesson.slots && lesson.slots.length) || (sch.timeSlots && sch.timeSlots.length) || 1;
+  if (!lesson.slotStates || !Array.isArray(lesson.slotStates) || lesson.slotStates.length !== slotCount) {
+    const newStates = [];
+    for (let i = 0; i < slotCount; i++) {
+      // 旧数据：整个 lesson 共享 type/content/rescheduleTo 等
+      // 如果整个 lesson 是调出（有 rescheduleTo），所有时段都标记调出
+      // 如果整个 lesson 是调入（有 rescheduleFrom），所有时段都标记调入
+      // 否则按 type 来
+      if (lesson.rescheduleTo && i === 0) {
+        newStates.push({ type: 'adjust', rescheduleTo: lesson.rescheduleTo, teacherId: lesson.teacherId });
+      } else if (lesson.rescheduleTo) {
+        newStates.push({ type: 'adjust', rescheduleTo: lesson.rescheduleTo, teacherId: lesson.teacherId });
+      } else if (lesson.rescheduleFrom && i === 0) {
+        newStates.push({ type: 'adjust', rescheduleFrom: lesson.rescheduleFrom, teacherId: lesson.teacherId });
+      } else if (lesson.rescheduleFrom) {
+        newStates.push({ type: 'adjust', rescheduleFrom: lesson.rescheduleFrom, teacherId: lesson.teacherId });
+      } else {
+        newStates.push({ type: lesson.type || 'normal', content: i === 0 ? (lesson.content || '') : '' });
+      }
+    }
+    lesson.slotStates = newStates;
+  }
 }
 function saveData() {
   try {
@@ -861,14 +985,18 @@ function goToStep2() {
 function goToStep1() { showStep(1); }
 function goToStep3() { renderFeeSummary(); showStep(3); }
 
-// ===== 生成月历（关键：全部用 parseLocalDate，不用 new Date(str)）=====
+// ===== 生成月历（按时段独立渲染状态）=====
 function generateCalendar() {
+  try {
   const { dateStart, dateEnd, weekdays, timeSlots, feePerClass, semester, year } = tempSchedule;
   const slots = (timeSlots && timeSlots.length) ? timeSlots : [{start:'14:00',end:'16:00'}];
 
-  // ★ 用 parseLocalDate 避免时区偏移
   const semStart = parseLocalDate(dateStart);
   const semEnd   = parseLocalDate(dateEnd);
+  if (!semStart || !semEnd) {
+    document.getElementById('calendarContainer').innerHTML = '<div style="padding:20px;color:var(--danger)">❌ 日期范围无效：开始='+dateStart+' 结束='+dateEnd+'</div>';
+    return;
+  }
 
   document.getElementById('calTitle').textContent = semester+'学期 '+year+' · '+dateStart+' 至 '+dateEnd;
 
@@ -878,23 +1006,32 @@ function generateCalendar() {
   for (const ds in tempSchedule.lessons) {
     if (ds < dateStart || ds > dateEnd) {
       const l = tempSchedule.lessons[ds];
-      if (l.rescheduleTo) toDelete.push(l.rescheduleTo);
-      if (!l.rescheduleFrom) toDelete.push(ds);
+      // 清理调出链（slotStates 版本）
+      if (l.slotStates) {
+        l.slotStates.forEach(ss => { if (ss && ss.rescheduleTo) toDelete.push(ss.rescheduleTo); });
+      } else if (l.rescheduleTo) toDelete.push(l.rescheduleTo);
+      if (!hasAnyRescheduleFrom(l)) toDelete.push(ds);
     }
   }
   [...new Set(toDelete)].forEach(ds=>delete tempSchedule.lessons[ds]);
 
-  // 按日期范围 + 多时段生成计划课程
+  // 辅助：检查 lesson 是否有任何 slot 的 rescheduleFrom
+  function hasAnyRescheduleFrom(l) {
+    if (l.rescheduleFrom) return true;
+    if (l.slotStates) return l.slotStates.some(ss => ss && (ss.rescheduleFrom || ss.type === 'makeup'));
+    return false;
+  }
+
+  // 按日期范围生成计划课程
   for (let d = new Date(semStart); d <= semEnd; d.setDate(d.getDate()+1)) {
     const ds = toLocalDateStr(d);
     const dow = d.getDay();
-    const wd = dow === 0 ? 7 : dow; // 周日=7
+    const wd = dow === 0 ? 7 : dow;
     if (weekdays.includes(wd) && !tempSchedule.lessons[ds]) {
-      // 多时段：用 ";" 分隔
       const timeStr = slots.map(s=>s.start+'-'+s.end).join(';');
-      // ★ 多时段：总费用 = 课时费 × 时段数
       const totalFeeForDay = feePerClass * slots.length;
-      tempSchedule.lessons[ds] = { time: timeStr, type:'normal', content:'', fee: totalFeeForDay, slots: slots.map(s=>({...s})) };
+      const slotStates = slots.map(()=>({ type:'normal', content:'' }));
+      tempSchedule.lessons[ds] = { time: timeStr, type:'normal', content:'', fee: totalFeeForDay, slots: slots.map(s=>({...s})), slotStates };
     }
   }
 
@@ -902,7 +1039,6 @@ function generateCalendar() {
   const weekNames = ['周一','周二','周三','周四','周五','周六','周日'];
   let html = '';
 
-  // 按月份渲染
   let curMonth = new Date(semStart.getFullYear(), semStart.getMonth(), 1);
   const endMonth = new Date(semEnd.getFullYear(), semEnd.getMonth(), 1);
 
@@ -910,8 +1046,6 @@ function generateCalendar() {
     const y = curMonth.getFullYear();
     const m = curMonth.getMonth();
     const daysInMonth = new Date(y, m+1, 0).getDate();
-
-    // 该月第一天是周几（周一=0开头）
     const firstDow = new Date(y, m, 1).getDay();
     const firstOffset = firstDow === 0 ? 6 : firstDow - 1;
 
@@ -925,7 +1059,6 @@ function generateCalendar() {
     for (let i=0; i<firstOffset; i++) { rowHtml += '<td class="cell-empty"></td>'; cellCount++; }
 
     for (let day=1; day<=daysInMonth; day++) {
-      // ★ 直接用 new Date(y,m,day) 构造，不会有时区问题
       const date = new Date(y, m, day);
       const ds = toLocalDateStr(date);
       const dow = date.getDay();
@@ -933,75 +1066,57 @@ function generateCalendar() {
       const inRange = date >= semStart && date <= semEnd;
       const isWeekdayMatch = inRange && weekdays.includes(wd);
       const lesson = tempSchedule.lessons[ds];
-      const isRescheduledAway = lesson && lesson.rescheduleTo;
-      const isRescheduledHere = lesson && lesson.rescheduleFrom;
+
+      // ★ 确保 lesson 有 slotStates
+      if (lesson) ensureSlotStates(lesson, tempSchedule);
 
       let cellClass = '', cellContent = '';
 
       if (!inRange) {
         cellClass = 'cell-outrange';
         cellContent = `<div class="day-num">${day}</div><div class="day-date">${m+1}/${day}</div>`;
-      } else if (isRescheduledHere && !isWeekdayMatch) {
-        // 非计划日，被调过来
-        cellClass = 'cell-adjust';
-        const srcDisplay = lesson.rescheduleFrom.substring(5);
-        const defaultTime = slots.map(s=>s.start+'-'+s.end).join(';');
-        const lt = lesson.time || defaultTime;
-        const teacherName = lesson.teacherId ? getStudentName(lesson.teacherId) : '';
-        cellContent = `<div class="day-num">${day}</div><div class="day-date">${m+1}/${day}</div>
-          <div class="cell-content">
-            <span class="status-label" title="从${lesson.rescheduleFrom}调入">调入←${srcDisplay}</span>
-            ${teacherName ? `<span class="status-label" style="background:#dbeafe;color:#1d4ed8;font-size:9px">👤 ${escHtml(teacherName)}</span>` : ''}
-            <div class="lesson-time">${lt}</div>
-            <input class="content-input" placeholder="课程内容" value="${escAttr(lesson.content||'')}" onchange="updateLessonContent('${ds}',this.value)">
-            <button class="btn-remove-adjust" onclick="cancelRescheduleTo('${ds}')">取消</button>
-          </div>`;
-      } else if (isWeekdayMatch) {
-        const type = lesson ? lesson.type : 'normal';
-        if      (type==='normal') cellClass = 'cell-scheduled';
-        else if (type==='adjust') cellClass = 'cell-adjust';
-        else if (type==='absent') cellClass = 'cell-absent';
-
-        let statusLabel = type==='normal'?'上课': type==='adjust'?'调课':'请假';
-        if (isRescheduledAway) statusLabel = '调课→'+lesson.rescheduleTo.substring(5);
-        if (isRescheduledHere) statusLabel = '调入←'+lesson.rescheduleFrom.substring(5);
-
-        const defaultTime = slots.map(s=>s.start+'-'+s.end).join(';');
-        const lt = (lesson&&lesson.time) ? lesson.time : defaultTime;
-        const selectVal = (type==='adjust'&&!isRescheduledAway) ? 'adjust' : type==='absent' ? 'absent' : '';
-        const teacherName = (lesson && lesson.teacherId) ? getStudentName(lesson.teacherId) : '';
-
-        cellContent = `<div class="day-num">${day}</div><div class="day-date">${m+1}/${day}</div>
-          <div class="cell-content">
-            <span class="status-label">${statusLabel}</span>
-            ${teacherName ? `<span class="status-label" style="background:#dbeafe;color:#1d4ed8;font-size:9px">👤 ${escHtml(teacherName)}</span>` : ''}
-            <div class="lesson-time">${lt}</div>
-            <select class="type-select" onchange="changeLessonType('${ds}',this.value)">
-              <option value="" ${selectVal===''?'selected':''}>──</option>
-              <option value="adjust" ${selectVal==='adjust'?'selected':''}>调课</option>
-              <option value="absent" ${selectVal==='absent'?'selected':''}>请假</option>
-            </select>
-            <input class="content-input" placeholder="课程内容" value="${escAttr(lesson?lesson.content:'')}" onchange="updateLessonContent('${ds}',this.value)">
-            ${isRescheduledAway
-              ? `<button class="btn-xs btn-outline" style="font-size:10px;padding:2px 5px;margin-right:2px" onclick="openRescheduleModal('${ds}')">修改</button><button class="btn-remove-adjust" onclick="cancelRescheduleFrom('${ds}')">取消</button>`
-              : ''}
-          </div>`;
-      } else if (lesson && lesson.type === 'adjust' && !isRescheduledHere) {
-        // 范围内非计划日的手动加课
-        cellClass = 'cell-adjust';
-        const defaultTime = slots.map(s=>s.start+'-'+s.end).join(';');
-        const lt = lesson.time || defaultTime;
-        cellContent = `<div class="day-num">${day}</div><div class="day-date">${m+1}/${day}</div>
-          <div class="cell-content">
-            <span class="status-label">加课</span>
-            <div class="lesson-time">${lt}</div>
-            <input class="content-input" placeholder="课程内容" value="${escAttr(lesson.content||'')}" onchange="updateLessonContent('${ds}',this.value)">
-            <button class="btn-remove-adjust" onclick="removeAdjustLesson('${ds}')">取消</button>
-          </div>`;
       } else {
-        // 范围内空白格
-        cellClass = 'cell-inrange';
-        cellContent = `<div class="day-num">${day}</div><div class="day-date">${m+1}/${day}</div>`;
+        // ★ 按时段渲染，每个时段独立一行
+        const hasSlotStates = lesson && lesson.slotStates && lesson.slotStates.length > 0;
+        const isAllNormal = hasSlotStates && lesson.slotStates.every(ss => ss && ss.type === 'normal' && !ss.rescheduleTo && !ss.rescheduleFrom);
+        const isAllAbsent = hasSlotStates && lesson.slotStates.every(ss => ss && ss.type === 'absent');
+        const hasReschedule = hasSlotStates && lesson.slotStates.some(ss => ss && (ss.rescheduleTo || ss.rescheduleFrom));
+        const hasAbsent = hasSlotStates && lesson.slotStates.some(ss => ss && ss.type === 'absent');
+        const hasMakeup = hasSlotStates && lesson.slotStates.some(ss => ss && ss.type === 'makeup');
+        // ★ 混合状态：各时段状态不一致
+        const isMixed = hasSlotStates && !isAllNormal && !isAllAbsent;
+        const isBlank = !lesson && !isWeekdayMatch;
+
+        if (isBlank) {
+          cellClass = 'cell-inrange';
+          cellContent = `<div class="day-num">${day}</div><div class="day-date">${m+1}/${day}</div>`;
+        } else if (isAllAbsent) {
+          cellClass = 'cell-absent';
+          cellContent = `<div class="day-num">${day}</div><div class="day-date">${m+1}/${day}</div><div class="cell-content"><span class="status-label">请假</span></div>`;
+        } else if (isMixed && hasMakeup) {
+          // ★ 补课日优先：用紫色高亮
+          cellClass = 'cell-makeup';
+          cellContent = `<div class="day-num">${day}</div><div class="day-date">${m+1}/${day}</div>`;
+          cellContent += renderSlotRows(lesson, slots, ds, isWeekdayMatch);
+        } else if (isMixed) {
+          // ★ 混合状态：部分正常+部分请假/调课，用橙色标注
+          cellClass = 'cell-mixed';
+          cellContent = `<div class="day-num">${day}</div><div class="day-date">${m+1}/${day}</div>`;
+          cellContent += renderSlotRows(lesson, slots, ds, isWeekdayMatch);
+        } else if (isAllNormal && !hasReschedule && isWeekdayMatch) {
+          cellClass = 'cell-scheduled';
+          cellContent = `<div class="day-num">${day}</div><div class="day-date">${m+1}/${day}</div>`;
+          cellContent += renderSlotRows(lesson, slots, ds, isWeekdayMatch);
+        } else if (isAllNormal && !hasReschedule && !isWeekdayMatch) {
+          // 调过来的课（全部时段调入）
+          cellClass = 'cell-adjust';
+          cellContent = `<div class="day-num">${day}</div><div class="day-date">${m+1}/${day}</div>`;
+          cellContent += renderSlotRows(lesson, slots, ds, isWeekdayMatch);
+        } else {
+          cellClass = hasReschedule ? 'cell-adjust' : 'cell-inrange';
+          cellContent = `<div class="day-num">${day}</div><div class="day-date">${m+1}/${day}</div>`;
+          cellContent += renderSlotRows(lesson, slots, ds, isWeekdayMatch);
+        }
       }
 
       rowHtml += `<td class="${cellClass}">${cellContent}</td>`;
@@ -1012,54 +1127,131 @@ function generateCalendar() {
     if (rowHtml !== '<tr>') { rowHtml += '</tr>'; monthHtml += rowHtml; }
     monthHtml += '</tbody></table></div>';
     html += monthHtml;
-    curMonth.setMonth(curMonth.getMonth()+1);
+    curMonth.setMonth(curMonth.getMonth() + 1);
   }
+
   container.innerHTML = html;
+  } catch(e) {
+    console.error('generateCalendar error:', e);
+    document.getElementById('calendarContainer').innerHTML = '<div style="padding:20px;color:var(--danger)">❌ 生成课表出错：'+e.message+'</div>';
+  }
 }
 
+// ★ 渲染一个 lesson 的每个时段行
+function renderSlotRows(lesson, slots, ds, isWeekdayMatch) {
+  let html = '<div class="cell-content">';
+  if (!lesson || !lesson.slotStates) {
+    // 无 lesson，显示空白时段（仅课表日期）
+    if (!isWeekdayMatch) { html += '</div>'; return html; }
+    slots.forEach((s, i) => {
+      const timeStr = s.start+'-'+s.end;
+      html += `<div class="slot-row" style="display:flex;align-items:center;gap:3px;margin-bottom:2px;font-size:10px">
+        <span class="lesson-time" style="font-size:10px;color:var(--text-secondary);white-space:nowrap">${timeStr}</span>
+        <span style="color:#94a3b8">-</span>
+      </div>`;
+    });
+    html += '</div>';
+    return html;
+  }
+
+  const ssArr = lesson.slotStates;
+  // ★ 遍历所有 slotStates（含超出的加课时段）
+  const slotCount = Math.max(slots.length, ssArr.length);
+
+  for (let i = 0; i < slotCount; i++) {
+    const ss = (i < ssArr.length) ? ssArr[i] : undefined;
+    // 非课表日期：只渲染有 slotState 的时段，跳过 undefined
+    if (!isWeekdayMatch && !ss) continue;
+    // 非课表日期：normal 类型但没有 rescheduleFrom/To 的时段不渲染
+    if (!isWeekdayMatch && ss && ss.type === 'normal' && !ss.rescheduleFrom && !ss.rescheduleTo) continue;
+    // ★ 时间段：优先使用 customSlot（加课自定义时间），否则用 slots[i]
+    let timeStr;
+    if (ss && ss.customSlot) {
+      timeStr = ss.customSlot.start+'-'+ss.customSlot.end;
+    } else if (i < slots.length && slots[i]) {
+      timeStr = slots[i].start+'-'+slots[i].end;
+    } else {
+      timeStr = '-';
+    }
+    const type = ss ? (ss.type || 'normal') : 'normal';
+    const isRescheduledAway = !!(ss && ss.rescheduleTo);
+    const isRescheduledHere = !!(ss && ss.rescheduleFrom);
+    // 状态标签
+    let statusLabel = '';
+    let statusColorStyle = ''; // 加课用粉色标签
+    if (isRescheduledAway) statusLabel = '调课→'+ss.rescheduleTo.substring(5);
+    else if (isRescheduledHere) statusLabel = '调入←'+ss.rescheduleFrom.substring(5);
+    else if (type === 'absent') statusLabel = '请假';
+    else if (type === 'makeup') { statusLabel = '加课'; statusColorStyle = 'background:#fce7f3;color:#9d174d'; }
+    else statusLabel = '上课';
+
+    html += `<div class="slot-row" style="display:flex;align-items:center;gap:3px;margin-bottom:2px;font-size:10px;flex-wrap:wrap">
+      <span class="lesson-time" style="font-size:10px;color:var(--text-secondary);white-space:nowrap;min-width:55px">${timeStr}</span>
+      <span class="status-label" style="font-size:9px;padding:0 4px;white-space:nowrap;${statusColorStyle}">${statusLabel}</span>`;
+
+    // 操作按钮
+    if (isRescheduledAway) {
+      html += `<button class="btn-xs btn-outline" style="font-size:9px;padding:1px 4px" onclick="openRescheduleModal('${ds}',${i})">修改</button>
+        <button class="btn-remove-adjust" style="font-size:9px;padding:1px 4px" onclick="cancelRescheduleFrom('${ds}',${i})">取消</button>`;
+    } else if (isRescheduledHere) {
+      html += `<button class="btn-xs btn-outline" style="font-size:9px;padding:1px 4px" onclick="openRescheduleModal('${ss.rescheduleFrom}',${i})">修改</button>
+        <button class="btn-remove-adjust" style="font-size:9px;padding:1px 4px" onclick="cancelRescheduleTo('${ds}',${i})">取消</button>`;
+    } else if (type === 'absent') {
+      html += `<button class="btn-xs btn-outline" style="font-size:9px;padding:1px 4px;color:var(--success)" onclick="changeSlotState('${ds}',${i},'normal')">恢复</button>`;
+    } else if (type === 'makeup') {
+      html += `<button class="btn-xs btn-outline" style="font-size:9px;padding:1px 4px;color:var(--danger)" onclick="cancelMakeupSlot('${ds}',${i})">取消加课</button>`;
+    } else {
+      html += `<button class="btn-xs btn-outline" style="font-size:9px;padding:1px 4px;color:var(--danger)" onclick="changeSlotState('${ds}',${i},'absent')">请假</button>
+        <button class="btn-xs btn-outline" style="font-size:9px;padding:1px 4px;color:var(--primary)" onclick="openRescheduleModal('${ds}',${i})">调课</button>`;
+    }
+
+    html += `</div>`;
+  }
+  html += '</div>';
+  return html;
+}
 // ===== 调课逻辑 =====
 let rescheduleSourceDate = null;
+let rescheduleSourceSlotIdx = 0;
 
-function changeLessonType(ds, type) {
+function changeSlotState(ds, slotIdx, newType) {
   if (!tempSchedule.lessons[ds]) return;
-  const lesson = tempSchedule.lessons[ds];
-  if (type === '') {
-    if (lesson.rescheduleTo) { delete tempSchedule.lessons[lesson.rescheduleTo]; delete lesson.rescheduleTo; }
-    lesson.type = 'normal';
-  } else if (type === 'absent') {
-    if (lesson.rescheduleTo) { delete tempSchedule.lessons[lesson.rescheduleTo]; delete lesson.rescheduleTo; }
-    lesson.type = 'absent';
-  } else if (type === 'adjust') {
-    openRescheduleModal(ds);
-    return; // 不立刻刷新，等弹窗确认
+  ensureSlotStates(tempSchedule.lessons[ds], tempSchedule);
+  const ss = tempSchedule.lessons[ds].slotStates;
+  if (slotIdx >= ss.length) return;
+  if (newType === 'absent') {
+    ss[slotIdx] = { type: 'absent', content: '' };
+  } else if (newType === 'normal') {
+    ss[slotIdx] = { type: 'normal', content: (ss[slotIdx] && ss[slotIdx].content) || '' };
   }
+  // ★ 同步更新费用
+  recalcLessonFee(tempSchedule.lessons[ds], tempSchedule.feePerClass);
   generateCalendar();
 }
-
-function openRescheduleModal(ds) {
+function openRescheduleModal(ds, slotIdx) {
   rescheduleSourceDate = ds;
+  rescheduleSourceSlotIdx = (slotIdx !== undefined) ? slotIdx : 0;
   const lesson = tempSchedule.lessons[ds];
   if (!lesson) return;
+  ensureSlotStates(lesson, tempSchedule);
   const slots = (tempSchedule.timeSlots && tempSchedule.timeSlots.length) ? tempSchedule.timeSlots : [{start:'14:00',end:'16:00'}];
-  const defaultTime = slots.map(s=>s.start+'-'+s.end).join(';');
-  const timeStr = lesson.time || defaultTime;
-  // 取第一个时段作为默认值
-  const [tS, tE] = timeStr.includes(';') ? timeStr.split(';')[0].split('-') : timeStr.split('-');
-  document.getElementById('rescheduleSrcInfo').innerHTML = '📅 原上课日期：<strong>'+ds+'</strong> · ⏰ '+timeStr;
-  document.getElementById('rescheduleTimeStart').value = tS;
-  document.getElementById('rescheduleTimeEnd').value   = tE;
-  document.getElementById('rescheduleContent').value   = lesson.content || '';
-  document.getElementById('rescheduleTargetDate').value = lesson.rescheduleTo || '';
-  // 填充老师下拉框
+  const slot = slots[rescheduleSourceSlotIdx] || slots[0];
+  const ss = (lesson.slotStates && lesson.slotStates[rescheduleSourceSlotIdx]) ? lesson.slotStates[rescheduleSourceSlotIdx] : { type:'normal', content:'' };
+  
+  document.getElementById('rescheduleSrcInfo').innerHTML = '📅 原上课日期：<strong>'+ds+'</strong> · ⏰ '+slot.start+'-'+slot.end+' (时段'+(rescheduleSourceSlotIdx+1)+')';
+  document.getElementById('rescheduleTimeStart').value = slot.start;
+  document.getElementById('rescheduleTimeEnd').value   = slot.end;
+  document.getElementById('rescheduleContent').value   = ss.content || '';
+  document.getElementById('rescheduleTargetDate').value = ss.rescheduleTo || '';
+  
   const teacherSelect = document.getElementById('rescheduleTeacher');
   const scheduleStudentIds = tempSchedule.studentIds || [];
   teacherSelect.innerHTML = scheduleStudentIds.map(sid => {
     const name = getStudentName(sid);
-    const selected = (lesson.teacherId === sid) ? ' selected' : '';
+    const selected = (ss.teacherId === sid) ? ' selected' : '';
     return `<option value="${sid}"${selected}>${escHtml(name)}</option>`;
   }).join('');
-  // 如果 lesson 没有 teacherId，默认选第一个
-  if (!lesson.teacherId && scheduleStudentIds.length > 0) {
+  if (!ss.teacherId && scheduleStudentIds.length > 0) {
     teacherSelect.value = scheduleStudentIds[0];
   }
   document.getElementById('collisionWarn').style.display = 'none';
@@ -1068,6 +1260,7 @@ function openRescheduleModal(ds) {
 function closeRescheduleModal() {
   document.getElementById('rescheduleModal').classList.remove('active');
   rescheduleSourceDate = null;
+  rescheduleSourceSlotIdx = 0;
 }
 
 function checkCollisionLive() {
@@ -1090,6 +1283,7 @@ function confirmReschedule() {
   const tE = document.getElementById('rescheduleTimeEnd').value;
   const content = document.getElementById('rescheduleContent').value.trim();
   const teacherId = document.getElementById('rescheduleTeacher').value;
+  const slotIdx = rescheduleSourceSlotIdx;
   if (!targetDate) { showToast('请选择调课日期'); return; }
   if (!tS || !tE)  { showToast('请设置时间段'); return; }
   if (tS >= tE)    { showToast('结束时间必须晚于开始时间'); return; }
@@ -1102,37 +1296,197 @@ function confirmReschedule() {
     return;
   }
   const srcLesson = tempSchedule.lessons[rescheduleSourceDate];
-  const fee = (srcLesson.fee != null && srcLesson.fee !== '') ? srcLesson.fee : tempSchedule.feePerClass;
-  // 清理旧调课目标
-  if (srcLesson.rescheduleTo) delete tempSchedule.lessons[srcLesson.rescheduleTo];
-  srcLesson.type = 'adjust';
-  srcLesson.rescheduleTo = targetDate;
-  srcLesson.teacherId = teacherId;
-  // 清理目标日期已有的调课
-  const existingTarget = tempSchedule.lessons[targetDate];
-  if (existingTarget && existingTarget.rescheduleFrom) {
-    const origSrc = tempSchedule.lessons[existingTarget.rescheduleFrom];
-    if (origSrc) { origSrc.type='normal'; delete origSrc.rescheduleTo; }
+  if (!srcLesson) return;
+  ensureSlotStates(srcLesson, tempSchedule);
+  const feePerSlot = tempSchedule.feePerClass;
+  
+  // 源课：标记该时段为调出
+  if (srcLesson.slotStates[slotIdx].rescheduleTo) {
+    delete tempSchedule.lessons[srcLesson.slotStates[slotIdx].rescheduleTo];
   }
-  tempSchedule.lessons[targetDate] = { time:timeStr, type:'adjust', rescheduleFrom:rescheduleSourceDate, content, fee, teacherId };
+  srcLesson.slotStates[slotIdx] = { type:'adjust', rescheduleTo:targetDate, teacherId, content: srcLesson.slotStates[slotIdx].content || '' };
+  
+  // 目标日期：只创建/更新被调课的时段，不初始化全部时段
+  if (!tempSchedule.lessons[targetDate]) {
+    const slots = (tempSchedule.timeSlots && tempSchedule.timeSlots.length) ? tempSchedule.timeSlots : [{start:'14:00',end:'16:00'}];
+    // 只初始化被调课的那个 slot，其余保持 undefined（渲染时会跳过）
+    const slotStates = new Array(slots.length);
+    slotStates[slotIdx] = { type:'adjust', rescheduleFrom:rescheduleSourceDate, content, teacherId };
+    const timeAll = slots.map(s=>s.start+'-'+s.end).join(';');
+    tempSchedule.lessons[targetDate] = { time: timeAll, type:'normal', content:'', fee: 0, slots: slots.map(s=>({...s})), slotStates };
+  } else {
+    // 已有 lesson，只更新对应 slotIdx
+    ensureSlotStates(tempSchedule.lessons[targetDate], tempSchedule);
+    // 清理目标时段已有的调课
+    const tgtSs = tempSchedule.lessons[targetDate].slotStates[slotIdx];
+    if (tgtSs && tgtSs.rescheduleFrom) {
+      const origSrcDate = tgtSs.rescheduleFrom;
+      if (tempSchedule.lessons[origSrcDate] && tempSchedule.lessons[origSrcDate].slotStates) {
+        const origSs = tempSchedule.lessons[origSrcDate].slotStates[slotIdx];
+        if (origSs) { origSs.type = 'normal'; delete origSs.rescheduleTo; delete origSs.teacherId; }
+      }
+    }
+    tempSchedule.lessons[targetDate].slotStates[slotIdx] = { type:'adjust', rescheduleFrom:rescheduleSourceDate, content, teacherId };
+  }
+  // 更新费用
+  recalcLessonFee(tempSchedule.lessons[targetDate], tempSchedule.feePerClass);
+  recalcLessonFee(srcLesson, tempSchedule.feePerClass);
+  
   closeRescheduleModal();
   generateCalendar();
-  showToast('✅ 调课已设置：'+rescheduleSourceDate+' → '+targetDate);
+  showToast('✅ 调课已设置：'+rescheduleSourceDate+' 时段'+(slotIdx+1)+' → '+targetDate);
 }
 
-function cancelRescheduleFrom(ds) {
+// ===== 加课逻辑 =====
+function openMakeupModal() {
+  // 初始化日期为今天
+  const today = new Date();
+  const todayStr = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+  document.getElementById('makeupDate').value = todayStr;
+  document.getElementById('makeupDate').min = tempSchedule.dateStart;
+  document.getElementById('makeupDate').max = '2030-12-31';
+
+  // 初始化时间段（默认取课表第一个时段，没有则默认14-16）
+  const slots = (tempSchedule.timeSlots && tempSchedule.timeSlots.length) ? tempSchedule.timeSlots : [{start:'14:00',end:'16:00'}];
+  document.getElementById('makeupTimeStart').value = slots[0].start;
+  document.getElementById('makeupTimeEnd').value = slots[0].end;
+
+  // 填充老师选择
+  const teacherOptions = tempSchedule.studentIds.map(sid =>
+    `<option value="${sid}">${escHtml(getStudentName(sid))}</option>`
+  ).join('');
+  document.getElementById('makeupTeacher').innerHTML = teacherOptions;
+  document.getElementById('makeupNote').value = '';
+
+  document.getElementById('makeupModal').style.display = 'flex';
+}
+
+function closeMakeupModal() {
+  document.getElementById('makeupModal').style.display = 'none';
+}
+
+function confirmMakeup() {
+  const targetDate = document.getElementById('makeupDate').value;
+  const timeStart = document.getElementById('makeupTimeStart').value;
+  const timeEnd = document.getElementById('makeupTimeEnd').value;
+  const teacherId = document.getElementById('makeupTeacher').value;
+  const note = document.getElementById('makeupNote').value.trim();
+
+  if (!targetDate) { showToast('请选择加课日期'); return; }
+  if (!timeStart || !timeEnd) { showToast('请选择时间段'); return; }
+  if (timeStart >= timeEnd) { showToast('结束时间必须晚于开始时间'); return; }
+
+  const customSlot = { start: timeStart, end: timeEnd };
+
+  // 确保目标日期有 lesson
+  if (!tempSchedule.lessons[targetDate]) {
+    const slotStates = [{ type: 'makeup', content: note, teacherId, customSlot }];
+    tempSchedule.lessons[targetDate] = { time: timeStart+'-'+timeEnd, type:'normal', content:'', fee: 0, slots: [{...customSlot}], slotStates };
+  } else {
+    const lesson = tempSchedule.lessons[targetDate];
+    ensureSlotStates(lesson, tempSchedule);
+    // 推入新的加课时段
+    lesson.slotStates.push({ type: 'makeup', content: note, teacherId, customSlot });
+    // 同步 slots 数组（用于日历渲染）
+    if (!lesson.slots) lesson.slots = [];
+    lesson.slots.push({...customSlot});
+  }
+
+  recalcLessonFee(tempSchedule.lessons[targetDate], tempSchedule.feePerClass);
+  closeMakeupModal();
+  generateCalendar();
+  showToast('✅ 加课已设置：'+targetDate+' '+timeStart+'-'+timeEnd);
+}
+
+function cancelMakeupSlot(ds, slotIdx) {
   const lesson = tempSchedule.lessons[ds];
-  if (!lesson||!lesson.rescheduleTo) return;
-  delete tempSchedule.lessons[lesson.rescheduleTo];
-  lesson.type = 'normal'; delete lesson.rescheduleTo; delete lesson.teacherId;
+  if (!lesson) return;
+  ensureSlotStates(lesson, tempSchedule);
+  const ss = lesson.slotStates[slotIdx];
+  if (!ss || ss.type !== 'makeup') return;
+  const isCustom = !!ss.customSlot;
+  // 如果该日期是课表日期且 slotIdx 在课表时段范围内，恢复为 normal；否则清除该 slot
+  const date = parseLocalDate(ds);
+  const dow = date.getDay(); const wd = dow===0?7:dow;
+  if (tempSchedule.weekdays.includes(wd) && slotIdx < (tempSchedule.timeSlots || []).length) {
+    lesson.slotStates[slotIdx] = { type: 'normal', content: '' };
+  } else {
+    lesson.slotStates[slotIdx] = undefined;
+    // 同步清理 slots 数组中的对应自定义 slot
+    if (isCustom && lesson.slots && slotIdx < lesson.slots.length) {
+      lesson.slots[slotIdx] = undefined;
+    }
+    // 检查是否所有时段都空了
+    const allEmpty = lesson.slotStates.every(s => !s || (s && s.type === 'normal' && !s.rescheduleFrom && !s.rescheduleTo && !s.content));
+    if (allEmpty) delete tempSchedule.lessons[ds];
+  }
+  recalcLessonFee(lesson, tempSchedule.feePerClass);
+  generateCalendar();
+  showToast('已取消加课');
+}
+
+// ★ 重新计算 lesson 的总费用
+function recalcLessonFee(lesson, feePerClass) {
+  if (!lesson.slotStates) return;
+  let totalFee = 0;
+  lesson.slotStates.forEach((ss, i) => {
+    if (!ss) return; // 跳过 undefined（非课表日期的未定义时段）
+    if (ss.type === 'absent') return; // 请假不计费
+    if (ss.rescheduleTo) return; // 调出不计费（已在目标日期计）
+    // normal 或 adjust（调入）都计费
+    totalFee += feePerClass;
+  });
+  lesson.fee = totalFee;
+}
+
+function cancelRescheduleFrom(ds, slotIdx) {
+  const lesson = tempSchedule.lessons[ds];
+  if (!lesson) return;
+  ensureSlotStates(lesson, tempSchedule);
+  const ss = lesson.slotStates[slotIdx];
+  if (!ss || !ss.rescheduleTo) return;
+  // 删除目标日期的对应时段
+  const targetDate = ss.rescheduleTo;
+  const targetLesson = tempSchedule.lessons[targetDate];
+  if (targetLesson) {
+    ensureSlotStates(targetLesson, tempSchedule);
+    if (targetLesson.slotStates[slotIdx]) {
+      targetLesson.slotStates[slotIdx] = undefined; // 只清除该时段，不设为 normal
+      // 如果目标日期所有时段都是 undefined/null，删除整个 lesson
+      const allEmpty = targetLesson.slotStates.every(s => !s || (s.type === 'normal' && !s.rescheduleFrom && !s.rescheduleTo && !s.content));
+      if (allEmpty) {
+        delete tempSchedule.lessons[targetDate];
+      } else {
+        recalcLessonFee(targetLesson, tempSchedule.feePerClass);
+      }
+    }
+  }
+  ss.type = 'normal'; delete ss.rescheduleTo; delete ss.teacherId;
+  recalcLessonFee(lesson, tempSchedule.feePerClass);
   generateCalendar(); showToast('已取消调课，恢复为上课');
 }
-function cancelRescheduleTo(ds) {
+function cancelRescheduleTo(ds, slotIdx) {
   const lesson = tempSchedule.lessons[ds];
-  if (!lesson||!lesson.rescheduleFrom) return;
-  const srcLesson = tempSchedule.lessons[lesson.rescheduleFrom];
-  if (srcLesson) { srcLesson.type='normal'; delete srcLesson.rescheduleTo; delete srcLesson.teacherId; }
-  delete tempSchedule.lessons[ds];
+  if (!lesson) return;
+  ensureSlotStates(lesson, tempSchedule);
+  const ss = lesson.slotStates[slotIdx];
+  if (!ss || !ss.rescheduleFrom) return;
+  const srcDate = ss.rescheduleFrom;
+  const srcLesson = tempSchedule.lessons[srcDate];
+  if (srcLesson && srcLesson.slotStates) {
+    const srcSs = srcLesson.slotStates[slotIdx];
+    if (srcSs) { srcSs.type = 'normal'; delete srcSs.rescheduleTo; delete srcSs.teacherId; }
+    recalcLessonFee(srcLesson, tempSchedule.feePerClass);
+  }
+  // 清理目标日期该时段（设为 undefined，不是 normal）
+  lesson.slotStates[slotIdx] = undefined;
+  // 如果目标日期所有时段都是 undefined/null，删除整个 lesson
+  const allEmpty = lesson.slotStates.every(s => !s || (s.type === 'normal' && !s.rescheduleFrom && !s.rescheduleTo && !s.content));
+  if (allEmpty) {
+    delete tempSchedule.lessons[ds];
+  } else {
+    recalcLessonFee(lesson, tempSchedule.feePerClass);
+  }
   generateCalendar(); showToast('已取消调课');
 }
 
@@ -1174,30 +1528,74 @@ function checkLessonCollision(sourceDateStr, targetDateStr, timeStr) {
 }
 
 function updateLessonContent(ds, content) {
-  if (tempSchedule.lessons[ds]) tempSchedule.lessons[ds].content = content;
+  // ★ 按时段：更新所有 slot 的 content
+  if (tempSchedule.lessons[ds]) {
+    const l = tempSchedule.lessons[ds];
+    l.content = content;
+    ensureSlotStates(l, tempSchedule);
+    if (l.slotStates) l.slotStates.forEach(ss => { if (ss) ss.content = content; });
+  }
 }
 function removeAdjustLesson(ds) { delete tempSchedule.lessons[ds]; generateCalendar(); }
 
 function resetAllToNormal() {
   if (!confirm('确定将所有请假和调课恢复为正常上课？')) return;
-  // 先删调课目标
-  for (const k in tempSchedule.lessons) { if (tempSchedule.lessons[k].rescheduleFrom) delete tempSchedule.lessons[k]; }
-  // 恢复源日期
   for (const k in tempSchedule.lessons) {
     const l = tempSchedule.lessons[k];
-    if (l.type==='absent'||l.type==='adjust') { l.type='normal'; delete l.rescheduleTo; delete l.rescheduleFrom; }
+    ensureSlotStates(l, tempSchedule);
+    // 清理调课目标
+    if (l.slotStates) {
+      l.slotStates.forEach(ss => {
+        if (ss && ss.rescheduleFrom) {
+          // 这是调课目标日期，清理掉
+          l.slotStates.forEach(s => { if (s) { s.type = 'normal'; delete s.rescheduleFrom; delete s.rescheduleTo; delete s.teacherId; } });
+        }
+      });
+    }
+  }
+  // 清理所有 slotStates
+  for (const k in tempSchedule.lessons) {
+    const l = tempSchedule.lessons[k];
+    ensureSlotStates(l, tempSchedule);
+    if (l.slotStates) {
+      l.slotStates.forEach(ss => {
+        if (ss && (ss.type === 'absent' || ss.type === 'adjust' || ss.type === 'makeup')) { ss.type = 'normal'; delete ss.rescheduleTo; delete ss.rescheduleFrom; delete ss.teacherId; }
+      });
+    }
+    // 删除非计划日的 lesson
+    const date = parseLocalDate(k);
+    const dow = date.getDay(); const wd = dow===0?7:dow;
+    const hasContent = l.slotStates && l.slotStates.some(ss => ss && (ss.rescheduleFrom || ss.type === 'makeup'));
+    if (!tempSchedule.weekdays.includes(wd) && !hasContent) delete tempSchedule.lessons[k];
   }
   generateCalendar(); showToast('已全部恢复为正常上课');
 }
 function clearAllAdjust() {
   if (!confirm('确定清空所有调课？')) return;
-  for (const k in tempSchedule.lessons) { if (tempSchedule.lessons[k].rescheduleFrom) delete tempSchedule.lessons[k]; }
   for (const k in tempSchedule.lessons) {
     const l = tempSchedule.lessons[k];
-    if (l.rescheduleTo) { l.type='normal'; delete l.rescheduleTo; }
+    ensureSlotStates(l, tempSchedule);
+    // 清理调课目标
+    if (l.slotStates) {
+      l.slotStates.forEach(ss => {
+        if (ss && ss.rescheduleFrom) {
+          l.slotStates.forEach(s => { if (s) { s.type = 'normal'; delete s.rescheduleFrom; delete s.rescheduleTo; delete s.teacherId; } });
+        }
+      });
+    }
+  }
+  for (const k in tempSchedule.lessons) {
+    const l = tempSchedule.lessons[k];
+    ensureSlotStates(l, tempSchedule);
+    if (l.slotStates) {
+      l.slotStates.forEach(ss => {
+        if (ss && ss.rescheduleTo) { ss.type = 'normal'; delete ss.rescheduleTo; delete ss.teacherId; }
+      });
+    }
     const date = parseLocalDate(k);
     const dow = date.getDay(); const wd = dow===0?7:dow;
-    if (!tempSchedule.weekdays.includes(wd) && !l.rescheduleFrom) delete tempSchedule.lessons[k];
+    const hasContent = l.slotStates && l.slotStates.some(ss => ss && (ss.rescheduleFrom || ss.type === 'makeup'));
+    if (!tempSchedule.weekdays.includes(wd) && !hasContent) delete tempSchedule.lessons[k];
   }
   generateCalendar(); showToast('已清空调课');
 }
@@ -1205,35 +1603,51 @@ function clearAllAdjust() {
 // ===== 费用计算（fee 已按多时段在生成时计入，直接使用）=====
 function calcScheduleStats(sch) {
   let totalLessons=0, totalFee=0, totalAbsent=0;
+  let totalNormalSlots=0, totalAdjustSlots=0, totalMakeupSlots=0;
   const monthly = {};
-  function getSlotCount(lesson) {
-    if (!lesson.time) return 1;
-    const segments = lesson.time.split(';');
-    return segments.length;
-  }
+  const absentList = []; // ★ 请假列表
   if (sch.lessons) {
     for (const [ds, l] of Object.entries(sch.lessons)) {
-      if (l.type === 'absent') { totalAbsent++; continue; }
-      if (l.rescheduleTo) continue; // 调课源不重复计数
-      const slotCount = getSlotCount(l);
-      const fee = (l.fee!=null && l.fee!=='') ? Number(l.fee) : (sch.feePerClass * slotCount);
-      totalLessons += slotCount;
-      totalFee += fee;
-      const mk = ds.substring(0,7);
-      if (!monthly[mk]) monthly[mk] = { lessons:0, fee:0 };
-      monthly[mk].lessons += slotCount;
-      monthly[mk].fee += fee;
+      // ★ 按时段统计
+      ensureSlotStates(l, sch);
+      if (l.slotStates) {
+        l.slotStates.forEach((ss, i) => {
+          if (!ss) return; // 跳过 undefined
+          if (ss.type === 'absent') { totalAbsent++; absentList.push(ds+' 时段'+(i+1)); return; }
+          if (ss.rescheduleTo) return; // 调出不计
+          // normal 或 adjust（调入）都计费
+          totalLessons++;
+          totalFee += sch.feePerClass;
+          if (ss.rescheduleFrom) totalAdjustSlots++;
+          else if (ss.type === 'makeup') totalMakeupSlots++;
+          else totalNormalSlots++;
+          const mk = ds.substring(0,7);
+          if (!monthly[mk]) monthly[mk] = { lessons:0, fee:0 };
+          monthly[mk].lessons++;
+          monthly[mk].fee += sch.feePerClass;
+        });
+      } else {
+        // 旧数据兼容（无 slotStates）
+        if (l.type === 'absent') { totalAbsent++; absentList.push(ds); continue; }
+        if (l.rescheduleTo) continue;
+        const fee = (l.fee!=null && l.fee!=='') ? Number(l.fee) : sch.feePerClass;
+        totalLessons++; totalFee += fee;
+        totalNormalSlots++;
+        const mk = ds.substring(0,7);
+        if (!monthly[mk]) monthly[mk] = { lessons:0, fee:0 };
+        monthly[mk].lessons++; monthly[mk].fee += fee;
+      }
     }
   }
   const avgFeePerLesson = totalLessons > 0 ? (totalFee / totalLessons) : sch.feePerClass;
-  return { totalLessons, totalFee, totalAbsent, monthly, avgFeePerLesson };
+  return { totalLessons, totalFee, totalAbsent, totalNormalSlots, totalAdjustSlots, totalMakeupSlots, absentList, monthly, avgFeePerLesson };
 }
 
 function renderFeeSummary() {
   const container = document.getElementById('feeSummary');
   const { semester, year, feePerClass, studentIds } = tempSchedule;
   const stats = calcScheduleStats(tempSchedule);
-  const { totalLessons, totalFee, totalAbsent, monthly, avgFeePerLesson } = stats;
+  const { totalLessons, totalFee, totalAbsent, totalNormalSlots, totalAdjustSlots, totalMakeupSlots, absentList, monthly, avgFeePerLesson } = stats;
 
   const sortedMonths = Object.keys(monthly).sort();
   const monthCount = sortedMonths.length;
@@ -1247,27 +1661,81 @@ function renderFeeSummary() {
   const weekNames = ['日','一','二','三','四','五','六'];
   let detailRows = [];
   if (tempSchedule.lessons) {
+    const slots = (tempSchedule.timeSlots && tempSchedule.timeSlots.length) ? tempSchedule.timeSlots : [{start:'14:00',end:'16:00'}];
     for (const [ds, l] of Object.entries(tempSchedule.lessons)) {
-      if (l.type==='absent' || l.rescheduleTo) continue;
+      ensureSlotStates(l, tempSchedule);
       const d = parseLocalDate(ds);
-      const fee = (l.fee!=null && l.fee!=='') ? Number(l.fee) : feePerClass;
-      detailRows.push({ date:ds, week:'周'+weekNames[d.getDay()], time:l.time, content:l.content||'-', fee, type: l.type });
+      if (l.slotStates) {
+        l.slotStates.forEach((ss, i) => {
+          if (!ss) return;
+          if (ss.type === 'absent') {
+            const timeS = (ss.customSlot) ? ss.customSlot.start+'-'+ss.customSlot.end : ((slots[i]||slots[0]).start+'-'+(slots[i]||slots[0]).end);
+            detailRows.push({ date:ds, week:'周'+weekNames[d.getDay()], time:timeS, content:'请假', fee:0, isAbsent:true, isAdjust:false, isMakeup:false });
+            return;
+          }
+          if (ss.rescheduleTo) return;
+          // ★ 时间段：优先用 customSlot，否则用课表 slots[i]
+          let timeStr;
+          if (ss.customSlot) {
+            timeStr = ss.customSlot.start+'-'+ss.customSlot.end;
+          } else if (slots[i]) {
+            timeStr = slots[i].start+'-'+slots[i].end;
+          } else {
+            timeStr = '-';
+          }
+          const isAdj = ss.type === 'adjust' || !!ss.rescheduleFrom;
+          const isMakeup = ss.type === 'makeup';
+          detailRows.push({ date:ds, week:'周'+weekNames[d.getDay()], time:timeStr, content:ss.content||'-', fee:feePerClass, isAbsent:false, isAdjust:isAdj, isMakeup });
+        });
+      } else {
+        // 旧数据兼容
+        if (l.type==='absent') {
+          detailRows.push({ date:ds, week:'周'+weekNames[d.getDay()], time:l.time||'', content:'请假', fee:0, isAbsent:true, isAdjust:false });
+          return;
+        }
+        if (l.rescheduleTo) return;
+        const fee = (l.fee!=null && l.fee!=='') ? Number(l.fee) : feePerClass;
+        const isAdj = l.type === 'adjust' || !!l.rescheduleFrom;
+        detailRows.push({ date:ds, week:'周'+weekNames[d.getDay()], time:l.time, content:l.content||'-', fee, isAbsent:false, isAdjust:isAdj });
+      }
     }
   }
   detailRows.sort((a,b)=>a.date.localeCompare(b.date));
   const detailHtml = detailRows.map(r=>{
-    const isAdjust = r.type === 'adjust';
-    return `<tr${isAdjust?' style="background:#dbeafe"':''}>
+    if (r.isAbsent) {
+      return `<tr style="background:#fef2f2;text-decoration:line-through;color:#dc2626"><td>${r.date}</td><td>${r.week}</td><td>${r.time}</td><td>🚫 请假</td><td style="text-align:right">-</td></tr>`;
+    }
+    const isAdj = r.isAdjust;
+    const isMakeup = r.isMakeup;
+    let rowStyle = '';
+    let tagHtml = '';
+    if (isMakeup) {
+      rowStyle = ' style="background:#fdf2f8"';
+      tagHtml = ' <span style="font-size:10px;background:#fce7f3;color:#9d174d;padding:1px 5px;border-radius:4px">加课</span>';
+    } else if (isAdj) {
+      rowStyle = ' style="background:#dbeafe"';
+      tagHtml = ' <span style="font-size:10px;background:#bfdbfe;color:#1e40af;padding:1px 5px;border-radius:4px">调课</span>';
+    }
+    return `<tr${rowStyle}>
     <td>${r.date}</td><td>${r.week}</td><td>${r.time}</td>
-    <td>${escHtml(r.content)}${isAdjust?' <span style="font-size:10px;background:#bfdbfe;color:#1e40af;padding:1px 5px;border-radius:4px">调课</span>':''}</td>
+    <td>${escHtml(r.content)}${tagHtml}</td>
     <td style="text-align:right">¥${r.fee}</td>
   </tr>`}).join('');
+
+  // ★ 请假备注
+  let absentNote = '';
+  if (totalAbsent > 0) {
+    absentNote = `<div class="form-section" style="background:var(--danger-light);border-color:#fecaca;margin-top:12px">
+      <h4 style="color:var(--danger)">🚫 请假备注</h4>
+      <p style="font-size:12px;color:#991b1b">共请假 <strong>${totalAbsent}</strong> 个时段，不计入费用。</p>
+    </div>`;
+  }
 
   container.innerHTML = `
     <div class="total-card">
       <div class="big-label">${semester}学期 ${year} · 总学费</div>
       <div class="big-num">¥${totalFee.toFixed(0)}</div>
-      <div style="font-size:13px;opacity:.85;margin-top:4px">${totalLessons}节课 · 请假${totalAbsent}节 · ${studentIds.length}名学生</div>
+      <div style="font-size:13px;opacity:.85;margin-top:4px">${totalLessons}节课${totalAdjustSlots>0?'（含调课'+totalAdjustSlots+'节）':''}${totalMakeupSlots>0?'（含加课'+totalMakeupSlots+'节）':''} · 请假${totalAbsent}节 · ${studentIds.length}名学生</div>
     </div>
     <div class="stats-row" style="margin-bottom:16px">
       <div class="stat-card"><div class="sc-label">📖 上课节数</div><div class="sc-value">${totalLessons}</div></div>
@@ -1289,6 +1757,7 @@ function renderFeeSummary() {
         <tr class="highlight-row"><td colspan="4"><strong>合计</strong></td><td style="text-align:right"><strong style="color:var(--primary)">¥${totalFee.toFixed(0)}</strong></td></tr>
       </tbody>
     </table>
+    ${absentNote}
     <h4 style="font-size:13px;font-weight:600;margin-bottom:8px">👥 学生明细</h4>
     <table class="fee-table">
       <thead><tr><th>学生</th><th>默认课时费/节</th><th>总节数</th><th style="text-align:right">应缴费用</th></tr></thead>
@@ -1389,18 +1858,34 @@ function renderRegister() {
   if (!schId) { container.innerHTML = '<p style="text-align:center;color:#94a3b8;padding:40px">请先选择学期</p>'; return; }
   const sch = appData.schedules.find(s=>s.id===schId);
   if (!sch) { container.innerHTML = '<p style="text-align:center;color:#94a3b8;padding:40px">未找到排课</p>'; return; }
-  const allDates = Object.keys(sch.lessons).filter(k=>sch.lessons[k].type!=='absent'&&!sch.lessons[k].rescheduleTo).sort();
+  // ★ 按时段过滤：只显示有正常课或调课的日期
+  const allDates = Object.keys(sch.lessons).filter(k => {
+    const l = sch.lessons[k];
+    ensureSlotStates(l, sch);
+    if (l.slotStates) {
+      return l.slotStates.some(ss => ss && ss.type !== 'absent' && !ss.rescheduleTo);
+    }
+    return l.type !== 'absent' && !l.rescheduleTo;
+  }).sort();
   if (!allDates.length) { container.innerHTML = '<p style="text-align:center;color:#94a3b8;padding:40px">该学期暂无课程安排</p>'; return; }
   const weekNames = ['日','一','二','三','四','五','六'];
+  const slots = (sch.timeSlots && sch.timeSlots.length) ? sch.timeSlots : [{start:'14:00',end:'16:00'}];
   let html = '<div class="attendance-list">';
   allDates.forEach(ds=>{
     const d = parseLocalDate(ds);
     const l = sch.lessons[ds];
-    const feeDisplay = (l.fee||sch.feePerClass);
+    ensureSlotStates(l, sch);
+    const feeDisplay = sch.feePerClass;
     const status = l.attended ? '✅' : '⭕';
+    // ★ 按时段显示
+    const timeDisplay = l.slotStates ? l.slotStates.filter(ss => ss).map((ss, i) => {
+      if (ss.customSlot) return ss.customSlot.start+'-'+ss.customSlot.end;
+      const slot = slots[i] || slots[0];
+      return slot.start+'-'+slot.end;
+    }).join(', ') : (l.time || '');
     html += `<div class="attendance-row" style="${l.attended?'background:#f0fdf4':''}">
       <span class="att-date">${(d.getMonth()+1)+'/'+d.getDate()} 周${weekNames[d.getDay()]}</span>
-      <span style="font-size:10px;color:var(--text-secondary)">${l.time}</span>
+      <span style="font-size:10px;color:var(--text-secondary)">${timeDisplay}</span>
       <span class="att-content"><input value="${escAttr(l.note||l.content||'')}" placeholder="上课内容…" onchange="updateLessonNote('${schId}','${ds}',this.value)"></span>
       <span class="att-fee">${status} ¥${feeDisplay}</span>
       <button class="btn btn-xs ${l.attended?'btn-outline':'btn-success'}" onclick="toggleLessonAttended('${schId}','${ds}')">${l.attended?'取消':'签到'}</button>
@@ -1421,6 +1906,227 @@ function updateLessonNote(schId, dateKey, value) {
   sch.lessons[dateKey].note = value;
   sch.lessons[dateKey].content = value;
   saveData();
+}
+
+// ===== 老师日程表 =====
+let svSelectedStudents = new Set();
+
+function openScheduleView() {
+  // 收集所有排课日期范围
+  let minDate = '', maxDate = '';
+  appData.schedules.forEach(sch => {
+    if (sch.dateStart && (!minDate || sch.dateStart < minDate)) minDate = sch.dateStart;
+    if (sch.dateEnd && (!maxDate || sch.dateEnd > maxDate)) maxDate = sch.dateEnd;
+  });
+  
+  // 渲染学生选择标签
+  svSelectedStudents.clear();
+  const allStudents = appData.students.filter(s => {
+    return appData.schedules.some(sch => sch.studentIds.includes(s.id));
+  });
+  if (allStudents.length > 0) {
+    allStudents.forEach(s => svSelectedStudents.add(s.id));
+  }
+  
+  const tagsHtml = allStudents.length > 0 ? allStudents.map(s => {
+    const sel = svSelectedStudents.has(s.id) ? ' selected' : '';
+    return `<span class="student-tag${sel}" id="svTag_${s.id}" onclick="toggleSVStudent('${s.id}')">${escHtml(s.name)}</span>`;
+  }).join('') : '<span style="color:#94a3b8;font-size:13px">暂无已排课的学生</span>';
+  
+  document.getElementById('svStudentTags').innerHTML = tagsHtml;
+  document.getElementById('svDateStart').value = minDate;
+  document.getElementById('svDateEnd').value = maxDate;
+  document.getElementById('svStep1').style.display = 'block';
+  document.getElementById('svStep2').style.display = 'none';
+  document.getElementById('scheduleViewModal').style.display = 'flex';
+}
+
+function toggleSVStudent(sid) {
+  if (svSelectedStudents.has(sid)) {
+    svSelectedStudents.delete(sid);
+  } else {
+    svSelectedStudents.add(sid);
+  }
+  const tag = document.getElementById('svTag_'+sid);
+  if (tag) tag.classList.toggle('selected');
+}
+
+function generateScheduleView() {
+  if (svSelectedStudents.size === 0) {
+    showToast('请至少选择一个学生');
+    return;
+  }
+  const dateStart = document.getElementById('svDateStart').value;
+  const dateEnd = document.getElementById('svDateEnd').value;
+  if (!dateStart || !dateEnd) {
+    showToast('请选择日期范围');
+    return;
+  }
+  
+  // 收集数据：{ "YYYY-MM-DD": { "时间段": [ { studentId, studentName, content } ] } }
+  const dateMap = {};
+  
+  appData.schedules.forEach(sch => {
+    if (!sch.lessons) return;
+    const slots = (sch.timeSlots && sch.timeSlots.length) ? sch.timeSlots : [{start:'14:00',end:'16:00'}];
+    
+    for (const [ds, l] of Object.entries(sch.lessons)) {
+      if (ds < dateStart || ds > dateEnd) continue;
+      ensureSlotStates(l, sch);
+      
+      if (l.slotStates) {
+        l.slotStates.forEach((ss, i) => {
+          if (!ss) return;
+          if (ss.type === 'absent') return;
+          if (ss.rescheduleTo) return;
+          // ★ 时间段：优先 customSlot，否则用课表 slots[i]
+          let timeKey;
+          if (ss.customSlot) {
+            timeKey = ss.customSlot.start+'-'+ss.customSlot.end;
+          } else {
+            const slot = slots[i] || slots[0];
+            timeKey = slot.start+'-'+slot.end;
+          }
+          if (!dateMap[ds]) dateMap[ds] = {};
+          if (!dateMap[ds][timeKey]) dateMap[ds][timeKey] = [];
+          
+          // 确定这个时段属于哪个学生
+          const teacherId = ss.teacherId || (sch.studentIds.length === 1 ? sch.studentIds[0] : '');
+          if (teacherId && svSelectedStudents.has(teacherId)) {
+            const name = getStudentName(teacherId);
+            const content = ss.content || '';
+            dateMap[ds][timeKey].push({ sid: teacherId, name, content });
+          }
+        });
+      } else {
+        // 旧数据
+        if (l.type === 'absent') return;
+        if (l.rescheduleTo) return;
+        const defaultTime = (sch.timeSlots&&sch.timeSlots.length) ? sch.timeSlots.map(s=>s.start+'-'+s.end).join(';') : (sch.timeStart||'14:00')+'-'+(sch.timeEnd||'16:00');
+        if (!dateMap[ds]) dateMap[ds] = {};
+        if (!dateMap[ds][defaultTime]) dateMap[ds][defaultTime] = [];
+        sch.studentIds.forEach(sid => {
+          if (svSelectedStudents.has(sid)) {
+            const name = getStudentName(sid);
+            dateMap[ds][defaultTime].push({ sid, name, content: l.content || '' });
+          }
+        });
+      }
+    }
+  });
+  
+  const dates = Object.keys(dateMap).sort();
+  if (dates.length === 0) {
+    document.getElementById('svStep2').innerHTML = '<div class="empty-msg">所选日期范围内暂无课程</div>';
+    document.getElementById('svStep1').style.display = 'none';
+    document.getElementById('svStep2').style.display = 'block';
+    return;
+  }
+  
+  const weekNames = ['日','一','二','三','四','五','六'];
+  const startD = parseLocalDate(dateStart);
+  const endD = parseLocalDate(dateEnd);
+  
+  let html = '<div style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">';
+  html += `<button class="btn btn-outline btn-sm" onclick="backToSVStep1()">← 返回选择</button>`;
+  html += `<span style="font-size:12px;color:var(--text-secondary)">${dateStart} 至 ${dateEnd} · ${svSelectedStudents.size}名学生 · ${dates.length}天有课</span>`;
+  html += `<button class="btn btn-primary btn-sm" onclick="downloadScheduleImage()">📷 下载图片</button>`;
+  html += '</div>';
+  html += '<div id="scheduleImageTarget">';
+  
+  // 按月生成月历网格
+  let cur = new Date(startD.getFullYear(), startD.getMonth(), 1);
+  while (cur <= endD) {
+    const y = cur.getFullYear();
+    const m = cur.getMonth();
+    const firstDay = new Date(y, m, 1);
+    const lastDay = new Date(y, m + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const firstOffset = firstDay.getDay();
+    
+    html += `<div class="month-block"><div class="month-title">📅 ${y}年${m+1}月</div>`;
+    html += '<table class="month-table"><thead><tr>';
+    weekNames.forEach((n, i) => html += `<th class="${i>=5?'weekend':''}">${n}</th>`);
+    html += '</tr></thead><tbody>';
+    
+    let cellCount = 0;
+    let rowHtml = '<tr>';
+    for (let i = 0; i < firstOffset; i++) { rowHtml += '<td class="cell-empty"></td>'; cellCount++; }
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+      const ds = toLocalDateStr(new Date(y, m, day));
+      const inRange = ds >= dateStart && ds <= dateEnd;
+      const info = dateMap[ds];
+      
+      let cellContent = `<div class="day-num">${day}</div>`;
+      
+      if (info && inRange) {
+        // 有课：显示学生名+时间段
+        const timeKeys = Object.keys(info).sort();
+        cellContent += '<div class="cell-content" style="font-size:9px;line-height:1.4">';
+        timeKeys.forEach(tk => {
+          const names = [...new Set(info[tk].map(e => e.name))];
+          cellContent += `<div style="margin:1px 0"><span style="color:#3b82f6;font-weight:600">${tk}</span></div>`;
+          cellContent += `<div style="margin:1px 0;padding-left:4px">${names.map(n => escHtml(n)).join('、')}</div>`;
+        });
+        cellContent += '</div>';
+        rowHtml += `<td class="cell-scheduled">${cellContent}</td>`;
+      } else if (inRange) {
+        cellContent += `<div class="day-date">${m+1}/${day}</div>`;
+        rowHtml += `<td class="cell-inrange">${cellContent}</td>`;
+      } else {
+        cellContent += `<div class="day-date">${m+1}/${day}</div>`;
+        rowHtml += `<td class="cell-outrange">${cellContent}</td>`;
+      }
+      
+      cellCount++;
+      if (cellCount % 7 === 0) { rowHtml += '</tr>'; html += rowHtml; rowHtml = '<tr>'; }
+    }
+    while (cellCount % 7 !== 0) { rowHtml += '<td class="cell-empty"></td>'; cellCount++; }
+    if (rowHtml !== '<tr>') { rowHtml += '</tr>'; html += rowHtml; }
+    html += '</tbody></table></div>';
+    
+    cur.setMonth(cur.getMonth() + 1);
+  }
+  html += '</div>'; // close scheduleImageTarget
+  
+  document.getElementById('svStep1').style.display = 'none';
+  document.getElementById('svStep2').style.display = 'block';
+  document.getElementById('svStep2').innerHTML = html;
+}
+
+function backToSVStep1() {
+  document.getElementById('svStep1').style.display = 'block';
+  document.getElementById('svStep2').style.display = 'none';
+}
+
+function closeScheduleView() {
+  document.getElementById('scheduleViewModal').style.display = 'none';
+  document.getElementById('svStep1').style.display = 'block';
+  document.getElementById('svStep2').style.display = 'none';
+}
+
+async function downloadScheduleImage() {
+  const target = document.getElementById('scheduleImageTarget');
+  if (!target) { showToast('请先生成日程表'); return; }
+  showToast('正在生成图片...');
+  try {
+    const canvas = await html2canvas(target, {
+      backgroundColor: '#f1f5f9',
+      scale: 2,
+      useCORS: true,
+      logging: false
+    });
+    const link = document.createElement('a');
+    const dateStr = toLocalDateStr(new Date());
+    link.download = `老师日程表_${dateStr}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    showToast('✅ 日程表图片已下载！');
+  } catch(e) {
+    showToast('⚠ 图片生成失败，请重试');
+    console.error(e);
+  }
 }
 
 // ===== 我的Tab（修复：增加【新建排课】按钮）=====
@@ -1479,22 +2185,65 @@ function renderMineTab(studentId) {
     const sortedMonths = Object.keys(monthly).sort();
     const monthDetailHtml = sortedMonths.map(mk=>`<tr><td>${mk}</td><td>${monthly[mk].lessons}节</td><td style="text-align:right">¥${monthly[mk].fee.toFixed(0)}</td></tr>`).join('');
 
-    // 上课明细
+    // 上课明细（按时段拆分，含请假记录）
     const detailRows = [];
     if (sch.lessons) {
       const weekNames2 = ['日','一','二','三','四','五','六'];
+      const slots = (sch.timeSlots && sch.timeSlots.length) ? sch.timeSlots : [{start:'14:00',end:'16:00'}];
       for (const [ds, l] of Object.entries(sch.lessons)) {
-        if (l.type==='absent'||l.rescheduleTo) continue;
+        ensureSlotStates(l, sch);
         const d = parseLocalDate(ds);
-        const fee = (l.fee!=null&&l.fee!=='') ? Number(l.fee) : sch.feePerClass;
-        const defaultSchTime = (sch.timeSlots&&sch.timeSlots.length) ? sch.timeSlots.map(s=>s.start+'-'+s.end).join(';') : (sch.timeStart||'14:00')+'-'+(sch.timeEnd||'16:00');
-        detailRows.push({ date:ds, week:'周'+weekNames2[d.getDay()], time:l.time||defaultSchTime, content:l.content||'-', fee, type: l.type });
+        if (l.slotStates) {
+          l.slotStates.forEach((ss, i) => {
+            if (!ss) return; // 跳过 undefined（非课表日期的空时段）
+            if (ss.type === 'absent') {
+              const timeS = (ss.customSlot) ? ss.customSlot.start+'-'+ss.customSlot.end : ((slots[i]||slots[0]).start+'-'+(slots[i]||slots[0]).end);
+              detailRows.push({ date:ds, week:'周'+weekNames2[d.getDay()], time:timeS, content:'🚫 请假', fee:0, isAbsent:true, isAdjust:false, isMakeup:false });
+              return;
+            }
+            if (ss.rescheduleTo) return;
+            // ★ 时间段：优先 customSlot
+            let timeStr;
+            if (ss.customSlot) {
+              timeStr = ss.customSlot.start+'-'+ss.customSlot.end;
+            } else {
+              const slot = slots[i] || slots[0];
+              timeStr = slot.start+'-'+slot.end;
+            }
+            const isAdj = ss.type === 'adjust' || !!ss.rescheduleFrom;
+            const isMakeup = ss.type === 'makeup';
+            detailRows.push({ date:ds, week:'周'+weekNames2[d.getDay()], time:timeStr, content:ss.content||'-', fee:sch.feePerClass, isAbsent:false, isAdjust:isAdj, isMakeup });
+          });
+        } else {
+          // 旧数据兼容
+          if (l.type==='absent') {
+            detailRows.push({ date:ds, week:'周'+weekNames2[d.getDay()], time:l.time||'', content:'🚫 请假', fee:0, isAbsent:true, isAdjust:false });
+            continue;
+          }
+          if (l.rescheduleTo) continue;
+          const defaultSchTime = (sch.timeSlots&&sch.timeSlots.length) ? sch.timeSlots.map(s=>s.start+'-'+s.end).join(';') : (sch.timeStart||'14:00')+'-'+(sch.timeEnd||'16:00');
+          const isAdj = l.type === 'adjust' || !!l.rescheduleFrom;
+          detailRows.push({ date:ds, week:'周'+weekNames2[d.getDay()], time:l.time||defaultSchTime, content:l.content||'-', fee:sch.feePerClass, isAbsent:false, isAdjust:isAdj });
+        }
       }
     }
     detailRows.sort((a,b)=>a.date.localeCompare(b.date));
     const detailHtml = detailRows.map(r=>{
-      const isAdjust2 = r.type === 'adjust';
-      return `<tr${isAdjust2?' style="background:#dbeafe"':''}><td>${r.date}</td><td>${r.week}</td><td>${r.time}</td><td>${escHtml(r.content)}${isAdjust2?' <span style="font-size:10px;background:#bfdbfe;color:#1e40af;padding:1px 5px;border-radius:4px">调课</span>':''}</td><td style="text-align:right">¥${r.fee}</td></tr>`;
+      if (r.isAbsent) {
+        return `<tr style="background:#fef2f2;text-decoration:line-through;color:#dc2626"><td>${r.date}</td><td>${r.week}</td><td>${r.time}</td><td>🚫 请假</td><td style="text-align:right">-</td></tr>`;
+      }
+      const isAdjust2 = r.isAdjust;
+      const isMakeup2 = r.isMakeup;
+      let rowStyle2 = '';
+      let tagHtml2 = '';
+      if (isMakeup2) {
+        rowStyle2 = ' style="background:#fdf2f8"';
+        tagHtml2 = ' <span style="font-size:10px;background:#fce7f3;color:#9d174d;padding:1px 5px;border-radius:4px">加课</span>';
+      } else if (isAdjust2) {
+        rowStyle2 = ' style="background:#dbeafe"';
+        tagHtml2 = ' <span style="font-size:10px;background:#bfdbfe;color:#1e40af;padding:1px 5px;border-radius:4px">调课</span>';
+      }
+      return `<tr${rowStyle2}><td>${r.date}</td><td>${r.week}</td><td>${r.time}</td><td>${escHtml(r.content)}${tagHtml2}</td><td style="text-align:right">¥${r.fee}</td></tr>`;
     }).join('');
 
     const wdNames = ['一','二','三','四','五','六','日'];
@@ -1523,6 +2272,7 @@ function renderMineTab(studentId) {
             <tr style="font-weight:600;background:#f0fdf4"><td colspan="4">合计</td><td style="text-align:right;color:var(--primary)">¥${totalFee.toFixed(0)}</td></tr>
           </tbody>
         </table>
+        ${totalAbsent > 0 ? `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;margin-top:10px;font-size:12px;color:#dc2626">🚫 请假备注：共请假 <strong>${totalAbsent}</strong> 个时段，不计入费用。</div>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -1537,7 +2287,10 @@ function renderMineTab(studentId) {
     <div class="mine-card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <h4 style="margin-bottom:0">📚 ${escHtml(student.name)} 的排课记录</h4>
-        <button class="btn btn-primary btn-sm" onclick="switchTab('schedule')">＋ 新建排课</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-outline btn-sm" onclick="openScheduleView()">📅 老师日程表</button>
+          <button class="btn btn-primary btn-sm" onclick="switchTab('schedule')">＋ 新建排课</button>
+        </div>
       </div>
       <div class="semester-list">${semestersHtml}</div>
     </div>`;
@@ -1591,7 +2344,7 @@ async function generateSettleImage(schId) {
   if (!sch) { showToast('未找到排课数据'); return; }
   const studentId = document.getElementById('tabMine').getAttribute('data-student');
   const studentName = getStudentName(studentId);
-  const { totalLessons, totalFee, totalAbsent, monthly, avgFeePerLesson } = calcScheduleStats(sch);
+  const { totalLessons, totalFee, totalAbsent, totalNormalSlots, totalAdjustSlots, absentList, monthly, avgFeePerLesson } = calcScheduleStats(sch);
 
   showToast('正在生成对账单图片...');
 
@@ -1605,22 +2358,72 @@ async function generateSettleImage(schId) {
 
   const detailRows = [];
   if (sch.lessons) {
+    const slots = (sch.timeSlots && sch.timeSlots.length) ? sch.timeSlots : [{start:'14:00',end:'16:00'}];
     for (const [ds, l] of Object.entries(sch.lessons)) {
-      if (l.type==='absent'||l.rescheduleTo) continue;
+      ensureSlotStates(l, sch);
       const d = parseLocalDate(ds);
-      const fee = (l.fee!=null&&l.fee!=='') ? Number(l.fee) : sch.feePerClass;
-      const content = l.content || '-';
-      const defaultSchTime = (sch.timeSlots&&sch.timeSlots.length) ? sch.timeSlots.map(s=>s.start+'-'+s.end).join(';') : (sch.timeStart||'14:00')+'-'+(sch.timeEnd||'16:00');
-      const time = l.time || defaultSchTime;
-      const isAdjust = l.type === 'adjust' || !!l.rescheduleFrom;
-      detailRows.push({ date:ds, week:'周'+weekNames2[d.getDay()], time, content, fee, type: l.type, isAdjust });
+      if (l.slotStates) {
+        l.slotStates.forEach((ss, i) => {
+          if (!ss) return; // 跳过 undefined
+          if (ss.type === 'absent') {
+            const timeS = (ss.customSlot) ? ss.customSlot.start+'-'+ss.customSlot.end : ((slots[i]||slots[0]).start+'-'+(slots[i]||slots[0]).end);
+            detailRows.push({ date:ds, week:'周'+weekNames2[d.getDay()], time:timeS, content:'🚫 请假', fee:0, isAbsent:true, isAdjust:false, isMakeup:false });
+            return;
+          }
+          if (ss.rescheduleTo) return;
+          // ★ 时间段：优先 customSlot
+          let timeStr;
+          if (ss.customSlot) {
+            timeStr = ss.customSlot.start+'-'+ss.customSlot.end;
+          } else {
+            const slot = slots[i] || slots[0];
+            timeStr = slot.start+'-'+slot.end;
+          }
+          const isAdj = ss.type === 'adjust' || !!ss.rescheduleFrom;
+          const isMakeup = ss.type === 'makeup';
+          detailRows.push({ date:ds, week:'周'+weekNames2[d.getDay()], time:timeStr, content:ss.content||'-', fee:sch.feePerClass, isAbsent:false, isAdjust:isAdj, isMakeup });
+        });
+      } else {
+        // 旧数据兼容
+        if (l.type==='absent') {
+          detailRows.push({ date:ds, week:'周'+weekNames2[d.getDay()], time:l.time||'', content:'🚫 请假', fee:0, isAbsent:true, isAdjust:false });
+          return;
+        }
+        if (l.rescheduleTo) return;
+        const defaultSchTime = (sch.timeSlots&&sch.timeSlots.length) ? sch.timeSlots.map(s=>s.start+'-'+s.end).join(';') : (sch.timeStart||'14:00')+'-'+(sch.timeEnd||'16:00');
+        const time = l.time || defaultSchTime;
+        const isAdj = l.type === 'adjust' || !!l.rescheduleFrom;
+        detailRows.push({ date:ds, week:'周'+weekNames2[d.getDay()], time, content:l.content||'-', fee:sch.feePerClass, isAbsent:false, isAdjust:isAdj });
+      }
     }
   }
   detailRows.sort((a,b)=>a.date.localeCompare(b.date));
   const detailHtml = detailRows.map(r => {
+    if (r.isAbsent) {
+      return `<tr style="background:#fef2f2;text-decoration:line-through;color:#dc2626"><td>${r.date}</td><td>${r.week}</td><td>${r.time}</td><td>🚫 请假</td><td class="num-col">-</td></tr>`;
+    }
     const isAdj = r.isAdjust;
-    return `<tr${isAdj?' style="background:#dbeafe"':''}><td>${r.date}</td><td>${r.week}</td><td>${r.time}</td><td>${escHtml(r.content)}${isAdj?' <span style="font-size:10px;background:#bfdbfe;color:#1e40af;padding:1px 5px;border-radius:4px">调课</span>':''}</td><td class="num-col">¥${r.fee}</td></tr>`;
+    const isMakeup = r.isMakeup;
+    let rowStyle = '';
+    let tagHtml = '';
+    if (isMakeup) {
+      rowStyle = ' style="background:#fdf2f8"';
+      tagHtml = ' <span style="font-size:10px;background:#fce7f3;color:#9d174d;padding:1px 5px;border-radius:4px">加课</span>';
+    } else if (isAdj) {
+      rowStyle = ' style="background:#dbeafe"';
+      tagHtml = ' <span style="font-size:10px;background:#bfdbfe;color:#1e40af;padding:1px 5px;border-radius:4px">调课</span>';
+    }
+    return `<tr${rowStyle}><td>${r.date}</td><td>${r.week}</td><td>${r.time}</td><td>${escHtml(r.content)}${tagHtml}</td><td class="num-col">¥${r.fee}</td></tr>`;
   }).join('');
+
+  // ★ 请假备注
+  let absentNoteHtml = '';
+  if (totalAbsent > 0) {
+    absentNoteHtml = `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;margin-top:12px">
+      <div style="font-size:12px;font-weight:600;color:#dc2626;margin-bottom:4px">🚫 请假备注</div>
+      <div style="font-size:11px;color:#991b1b">共请假 <strong>${totalAbsent}</strong> 个时段，不计入费用。</div>
+    </div>`;
+  }
 
   const now = new Date();
   const dateStr = toLocalDateStr(now);
@@ -1646,6 +2449,7 @@ async function generateSettleImage(schId) {
       <tr class="total-row"><td colspan="4">合计</td><td class="num-col">¥${totalFee.toFixed(0)}</td></tr>
     </tbody>
   </table>` : ''}
+  ${absentNoteHtml}
   <div class="sc-footer">本结算单由课时费计算工具自动生成 · 仅供参考</div>
 </div>`;
 
@@ -1759,9 +2563,11 @@ ${detailRows.length > 0 ? `<h3>📋 上课明细</h3>
   showToast('✅ Word 文档已导出！');
 }
 
-document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeAddStudentModal(); closeRescheduleModal(); } });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeAddStudentModal(); closeRescheduleModal(); closeMakeupModal(); closeScheduleView(); } });
 document.getElementById('addStudentModal').addEventListener('click',function(e){if(e.target===this)closeAddStudentModal();});
 document.getElementById('rescheduleModal').addEventListener('click',function(e){if(e.target===this)closeRescheduleModal();});
+document.getElementById('makeupModal').addEventListener('click',function(e){if(e.target===this)closeMakeupModal();});
+document.getElementById('scheduleViewModal').addEventListener('click',function(e){if(e.target===this)closeScheduleView();});
 </script>
 </body>
 </html>
