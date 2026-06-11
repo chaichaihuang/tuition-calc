@@ -1124,14 +1124,14 @@ function cancelRescheduleFrom(ds) {
   const lesson = tempSchedule.lessons[ds];
   if (!lesson||!lesson.rescheduleTo) return;
   delete tempSchedule.lessons[lesson.rescheduleTo];
-  lesson.type = 'normal'; delete lesson.rescheduleTo;
+  lesson.type = 'normal'; delete lesson.rescheduleTo; delete lesson.teacherId;
   generateCalendar(); showToast('已取消调课，恢复为上课');
 }
 function cancelRescheduleTo(ds) {
   const lesson = tempSchedule.lessons[ds];
   if (!lesson||!lesson.rescheduleFrom) return;
   const srcLesson = tempSchedule.lessons[lesson.rescheduleFrom];
-  if (srcLesson) { srcLesson.type='normal'; delete srcLesson.rescheduleTo; }
+  if (srcLesson) { srcLesson.type='normal'; delete srcLesson.rescheduleTo; delete srcLesson.teacherId; }
   delete tempSchedule.lessons[ds];
   generateCalendar(); showToast('已取消调课');
 }
