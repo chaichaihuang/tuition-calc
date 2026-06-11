@@ -130,10 +130,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
 .month-table .cell-scheduled .day-num{color:#15803d}
 .month-table .cell-scheduled .status-label{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;background:#bbf7d0;color:#15803d;margin-bottom:2px}
 
-/* 调课日（红色标注，更醒目） */
-.month-table .cell-adjust{background:#fef2f2;border:2px solid #ef4444}
-.month-table .cell-adjust .day-num{color:#dc2626}
-.month-table .cell-adjust .status-label{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;background:#fecaca;color:#dc2626;margin-bottom:2px}
+/* 调课日 */
+.month-table .cell-adjust{background:#dbeafe;border:1px solid #93c5fd}
+.month-table .cell-adjust .day-num{color:#1e40af}
+.month-table .cell-adjust .status-label{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;background:#bfdbfe;color:#1e40af;margin-bottom:2px}
 
 /* 请假日 */
 .month-table .cell-absent{background:var(--danger-light);border:1px solid #fecaca}
@@ -242,12 +242,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
   .desktop-layout{grid-template-columns:1fr;padding:8px;gap:8px;padding-bottom:70px}
   .sidebar{display:none}
   .mobile-tabs{display:flex}
+  .pc-tab-btn{display:none}
   .stats-row{grid-template-columns:repeat(2,1fr);gap:6px}
   .stat-card{padding:10px 12px}
   .stat-card .sc-value{font-size:18px}
   .topbar{padding:0 10px;height:44px}
   .topbar .logo{font-size:14px}
   .form-row{flex-direction:column;align-items:stretch}
+  .form-row.fee-row{flex-direction:row;align-items:center;flex-wrap:nowrap}
   .form-row label{min-width:auto}
   .student-stats-row{grid-template-columns:repeat(2,1fr)}
   .month-table{font-size:11px}
@@ -301,6 +303,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
   <div class="logo"><span>📚</span> <span id="topbarTitle">课时费计算</span></div>
   <div class="topbar-actions">
     <span id="saveIndicator" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#16a34a;margin-right:4px">💾 已保存</span>
+    <button class="btn btn-sm pc-tab-btn" id="pcTabSchedule" style="font-weight:600;background:var(--primary);color:#fff;border-color:var(--primary)" onclick="switchTab('schedule')">📅 排课</button>
+    <button class="btn btn-sm btn-outline pc-tab-btn" id="pcTabRegister" onclick="switchTab('register')">📋 登记</button>
+    <button class="btn btn-sm btn-outline pc-tab-btn" id="pcTabMine" onclick="switchTab('mine')">👤 我的</button>
+    <span style="color:var(--border);margin:0 2px">|</span>
     <button class="btn btn-outline btn-sm" onclick="exportAllData()">💾 备份</button>
     <button class="btn btn-outline btn-sm" onclick="importDataPrompt()">📥 恢复</button>
   </div>
@@ -389,11 +395,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
             </div>
             <button class="btn btn-xs btn-outline" onclick="addTimeSlot()" style="white-space:nowrap">+ 添加时段</button>
           </div>
-          <div class="form-row">
+          <div class="form-row fee-row" style="flex-wrap:nowrap;align-items:center">
             <label>课时费</label>
-            <span style="font-size:15px;color:var(--primary);font-weight:600">¥</span>
-            <input type="number" class="form-input" id="feePerClass" value="700" min="0" step="1" style="width:90px">
-            <span style="font-size:11px;color:var(--text-secondary)">/节</span>
+            <span style="font-size:15px;color:var(--primary);font-weight:600;white-space:nowrap">¥</span>
+            <input type="number" class="form-input" id="feePerClass" value="700" min="0" step="1" style="width:90px;min-width:60px">
+            <span style="font-size:11px;color:var(--text-secondary);white-space:nowrap">/节</span>
           </div>
         </div>
         <div class="form-section">
@@ -687,6 +693,14 @@ function switchTab(tab) {
   document.querySelectorAll('.mobile-tab').forEach(t=>t.classList.remove('active'));
   const mt = document.querySelector('.mobile-tab[data-tab="'+tab+'"]');
   if (mt) mt.classList.add('active');
+  // 同步 PC 端顶栏 Tab 样式
+  ['schedule','register','mine'].forEach(t=>{
+    const btn = document.getElementById('pcTab'+t.charAt(0).toUpperCase()+t.slice(1));
+    if (btn) {
+      if (t===tab) { btn.className='btn btn-sm pc-tab-btn'; btn.style.cssText='font-weight:600;background:var(--primary);color:#fff;border-color:var(--primary)'; }
+      else { btn.className='btn btn-sm btn-outline pc-tab-btn'; btn.style.cssText=''; }
+    }
+  });
   if (tab==='mine') {
     const sid = document.getElementById('tabMine').getAttribute('data-student');
     renderMineTab(sid||null);
@@ -949,7 +963,7 @@ function generateCalendar() {
         else if (type==='absent') cellClass = 'cell-absent';
 
         let statusLabel = type==='normal'?'上课': type==='adjust'?'调课':'请假';
-        if (isRescheduledAway) statusLabel = '调出→'+lesson.rescheduleTo.substring(5);
+        if (isRescheduledAway) statusLabel = '调课→'+lesson.rescheduleTo.substring(5);
         if (isRescheduledHere) statusLabel = '调入←'+lesson.rescheduleFrom.substring(5);
 
         const defaultTime = slots.map(s=>s.start+'-'+s.end).join(';');
@@ -1237,15 +1251,17 @@ function renderFeeSummary() {
       if (l.type==='absent' || l.rescheduleTo) continue;
       const d = parseLocalDate(ds);
       const fee = (l.fee!=null && l.fee!=='') ? Number(l.fee) : feePerClass;
-      detailRows.push({ date:ds, week:'周'+weekNames[d.getDay()], time:l.time, content:l.content||'-', fee });
+      detailRows.push({ date:ds, week:'周'+weekNames[d.getDay()], time:l.time, content:l.content||'-', fee, type: l.type });
     }
   }
   detailRows.sort((a,b)=>a.date.localeCompare(b.date));
-  const detailHtml = detailRows.map(r=>`<tr>
+  const detailHtml = detailRows.map(r=>{
+    const isAdjust = r.type === 'adjust';
+    return `<tr${isAdjust?' style="background:#dbeafe"':''}>
     <td>${r.date}</td><td>${r.week}</td><td>${r.time}</td>
-    <td>${escHtml(r.content)}</td>
+    <td>${escHtml(r.content)}${isAdjust?' <span style="font-size:10px;background:#bfdbfe;color:#1e40af;padding:1px 5px;border-radius:4px">调课</span>':''}</td>
     <td style="text-align:right">¥${r.fee}</td>
-  </tr>`).join('');
+  </tr>`}).join('');
 
   container.innerHTML = `
     <div class="total-card">
@@ -1472,11 +1488,14 @@ function renderMineTab(studentId) {
         const d = parseLocalDate(ds);
         const fee = (l.fee!=null&&l.fee!=='') ? Number(l.fee) : sch.feePerClass;
         const defaultSchTime = (sch.timeSlots&&sch.timeSlots.length) ? sch.timeSlots.map(s=>s.start+'-'+s.end).join(';') : (sch.timeStart||'14:00')+'-'+(sch.timeEnd||'16:00');
-        detailRows.push({ date:ds, week:'周'+weekNames2[d.getDay()], time:l.time||defaultSchTime, content:l.content||'-', fee });
+        detailRows.push({ date:ds, week:'周'+weekNames2[d.getDay()], time:l.time||defaultSchTime, content:l.content||'-', fee, type: l.type });
       }
     }
     detailRows.sort((a,b)=>a.date.localeCompare(b.date));
-    const detailHtml = detailRows.map(r=>`<tr><td>${r.date}</td><td>${r.week}</td><td>${r.time}</td><td>${escHtml(r.content)}</td><td style="text-align:right">¥${r.fee}</td></tr>`).join('');
+    const detailHtml = detailRows.map(r=>{
+      const isAdjust2 = r.type === 'adjust';
+      return `<tr${isAdjust2?' style="background:#dbeafe"':''}><td>${r.date}</td><td>${r.week}</td><td>${r.time}</td><td>${escHtml(r.content)}${isAdjust2?' <span style="font-size:10px;background:#bfdbfe;color:#1e40af;padding:1px 5px;border-radius:4px">调课</span>':''}</td><td style="text-align:right">¥${r.fee}</td></tr>`;
+    }).join('');
 
     const wdNames = ['一','二','三','四','五','六','日'];
     return `<div class="semester-item" onclick="toggleSemesterDetail(this)">
@@ -1487,7 +1506,6 @@ function renderMineTab(studentId) {
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <button class="btn btn-xs btn-outline" style="font-size:11px;padding:3px 7px" onclick="event.stopPropagation();generateSettleImage('${sch.id}')" title="生成结算图片发给家长">📸 对账单</button>
-          <button class="btn btn-xs btn-outline" style="font-size:11px;padding:3px 7px" onclick="event.stopPropagation();exportSettleWord('${sch.id}')" title="导出Word文档">📄 Word</button>
           <div class="sem-fee">¥${totalFee.toFixed(0)}</div>
         </div>
       </div>
@@ -1594,13 +1612,15 @@ async function generateSettleImage(schId) {
       const content = l.content || '-';
       const defaultSchTime = (sch.timeSlots&&sch.timeSlots.length) ? sch.timeSlots.map(s=>s.start+'-'+s.end).join(';') : (sch.timeStart||'14:00')+'-'+(sch.timeEnd||'16:00');
       const time = l.time || defaultSchTime;
-      detailRows.push({ date:ds, week:'周'+weekNames2[d.getDay()], time, content, fee });
+      const isAdjust = l.type === 'adjust' || !!l.rescheduleFrom;
+      detailRows.push({ date:ds, week:'周'+weekNames2[d.getDay()], time, content, fee, type: l.type, isAdjust });
     }
   }
   detailRows.sort((a,b)=>a.date.localeCompare(b.date));
-  const detailHtml = detailRows.map(r =>
-    `<tr><td>${r.date}</td><td>${r.week}</td><td>${r.time}</td><td>${escHtml(r.content)}</td><td class="num-col">¥${r.fee}</td></tr>`
-  ).join('');
+  const detailHtml = detailRows.map(r => {
+    const isAdj = r.isAdjust;
+    return `<tr${isAdj?' style="background:#dbeafe"':''}><td>${r.date}</td><td>${r.week}</td><td>${r.time}</td><td>${escHtml(r.content)}${isAdj?' <span style="font-size:10px;background:#bfdbfe;color:#1e40af;padding:1px 5px;border-radius:4px">调课</span>':''}</td><td class="num-col">¥${r.fee}</td></tr>`;
+  }).join('');
 
   const now = new Date();
   const dateStr = toLocalDateStr(now);
@@ -1608,20 +1628,8 @@ async function generateSettleImage(schId) {
   const cardHtml = `
 <div class="settle-card">
   <div class="sc-top">
-    <div class="sc-title">📚 课时费结算单</div>
-    <div class="sc-subtitle">${sch.semester}学期 ${sch.year} · 生成日期：${dateStr}</div>
-  </div>
-  <div class="sc-info">
-    <div><span class="sc-student">👤 学生：${escHtml(studentName)}</span></div>
-    <div class="sc-semester">${sch.dateStart} 至 ${sch.dateEnd}</div>
-  </div>
-  <div class="sc-summary">
-    <div class="sc-stat"><div class="sc-stat-label">📖 上课节数</div><div class="sc-stat-value">${totalLessons}</div></div>
-    <div class="sc-stat"><div class="sc-stat-label">🚫 请假节数</div><div class="sc-stat-value">${totalAbsent}</div></div>
-    <div class="sc-stat hl"><div class="sc-stat-label">🏷 平均/节</div><div class="sc-stat-value">¥${avgFeePerLesson.toFixed(0)}</div></div>
-  </div>
-  <div style="text-align:center">
-    <div class="sc-total-badge">合计：¥${totalFee.toFixed(0)}</div>
+    <div class="sc-title">${escHtml(studentName)}课时费结算单</div>
+    <div class="sc-subtitle">${sch.semester}学期：${sch.dateStart}至${sch.dateEnd}</div>
   </div>
   <h4>📅 月度明细</h4>
   <table>
