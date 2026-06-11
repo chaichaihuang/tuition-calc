@@ -121,7 +121,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
 .month-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
 .month-table thead th{background:#f8fafc;padding:8px 4px;text-align:center;font-weight:600;color:var(--text-secondary);font-size:11px;border-bottom:2px solid var(--border)}
 .month-table thead th.weekend{color:#dc2626}
-.month-table tbody td{padding:4px;border:1px solid #f1f5f9;vertical-align:top;height:90px;position:relative}
+.month-table tbody td{padding:4px;border:1px solid #f1f5f9;vertical-align:top;min-height:80px;position:relative}
 .month-table .day-num{font-weight:600;font-size:13px;margin-bottom:2px}
 .month-table .day-date{font-size:10px;color:var(--text-secondary);margin-bottom:2px}
 
@@ -130,10 +130,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
 .month-table .cell-scheduled .day-num{color:#15803d}
 .month-table .cell-scheduled .status-label{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;background:#bbf7d0;color:#15803d;margin-bottom:2px}
 
-/* 调课日 */
-.month-table .cell-adjust{background:#dbeafe;border:1px solid #93c5fd}
-.month-table .cell-adjust .day-num{color:#1e40af}
-.month-table .cell-adjust .status-label{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;background:#bfdbfe;color:#1e40af;margin-bottom:2px}
+/* 调课日（红色标注，更醒目） */
+.month-table .cell-adjust{background:#fef2f2;border:2px solid #ef4444}
+.month-table .cell-adjust .day-num{color:#dc2626}
+.month-table .cell-adjust .status-label{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;background:#fecaca;color:#dc2626;margin-bottom:2px}
 
 /* 请假日 */
 .month-table .cell-absent{background:var(--danger-light);border:1px solid #fecaca}
@@ -251,8 +251,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
   .form-row label{min-width:auto}
   .student-stats-row{grid-template-columns:repeat(2,1fr)}
   .month-table{font-size:11px}
-  .month-table tbody td{height:75px;padding:2px}
-  .cell-content .content-input,.cell-content .type-select{font-size:10px}
+  .month-table tbody td{height:65px;padding:2px}
+  .cell-content .content-input,.cell-content .type-select{font-size:9px}
+  .cell-content .lesson-time{font-size:8px}
+  .cell-content .status-label{font-size:8px;padding:0 4px}
   .step-line{width:30px;margin:0 4px}
   .attendance-row{gap:4px;padding:6px 8px}
   .modal-overlay{padding:0}
@@ -876,7 +878,9 @@ function generateCalendar() {
     if (weekdays.includes(wd) && !tempSchedule.lessons[ds]) {
       // 多时段：用 ";" 分隔
       const timeStr = slots.map(s=>s.start+'-'+s.end).join(';');
-      tempSchedule.lessons[ds] = { time: timeStr, type:'normal', content:'', fee: feePerClass, slots: slots.map(s=>({...s})) };
+      // ★ 多时段：总费用 = 课时费 × 时段数
+      const totalFeeForDay = feePerClass * slots.length;
+      tempSchedule.lessons[ds] = { time: timeStr, type:'normal', content:'', fee: totalFeeForDay, slots: slots.map(s=>({...s})) };
     }
   }
 
@@ -1184,24 +1188,29 @@ function clearAllAdjust() {
   generateCalendar(); showToast('已清空调课');
 }
 
-// ===== 费用计算（修复平均课时费 = 总费用/总节数）=====
+// ===== 费用计算（fee 已按多时段在生成时计入，直接使用）=====
 function calcScheduleStats(sch) {
   let totalLessons=0, totalFee=0, totalAbsent=0;
   const monthly = {};
+  function getSlotCount(lesson) {
+    if (!lesson.time) return 1;
+    const segments = lesson.time.split(';');
+    return segments.length;
+  }
   if (sch.lessons) {
     for (const [ds, l] of Object.entries(sch.lessons)) {
       if (l.type === 'absent') { totalAbsent++; continue; }
       if (l.rescheduleTo) continue; // 调课源不重复计数
-      const fee = (l.fee!=null && l.fee!=='') ? Number(l.fee) : sch.feePerClass;
-      totalLessons++;
+      const slotCount = getSlotCount(l);
+      const fee = (l.fee!=null && l.fee!=='') ? Number(l.fee) : (sch.feePerClass * slotCount);
+      totalLessons += slotCount;
       totalFee += fee;
       const mk = ds.substring(0,7);
       if (!monthly[mk]) monthly[mk] = { lessons:0, fee:0 };
-      monthly[mk].lessons++;
+      monthly[mk].lessons += slotCount;
       monthly[mk].fee += fee;
     }
   }
-  // ★ 修复：平均课时费 = 总费用 / 总节数
   const avgFeePerLesson = totalLessons > 0 ? (totalFee / totalLessons) : sch.feePerClass;
   return { totalLessons, totalFee, totalAbsent, monthly, avgFeePerLesson };
 }
